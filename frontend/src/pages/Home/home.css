@@ -1,0 +1,88 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%; /* 确保 body 和 html 的高度填满视窗 */
+    box-sizing: border-box; /* 确保 padding 不影响宽高计算 */
+}
+img{
+    width:50px;
+    height:50px;
+}
+.container{
+    display:grid;
+    grid-template-columns: 1fr 5fr;
+    grid-template-rows:1fr;
+    height:100vh;
+
+}
+.aside-nav{
+    display: grid;
+    grid-template-rows:50px 50px 50px 50px 50px;
+    background: antiquewhite;
+    padding:50px;
+}
+img{
+    margin-bottom: 20px;
+}
+.aside-button{
+    width:100%;
+    padding-top: 10px;
+    padding-left:10px;
+    border-bottom:1px solid #ddd;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.aside-button:hover {
+    background-color: #eedfcc; /* 稍微深一点的颜色 */
+    color: #333; /* 改变文字颜色 */
+}
+
+.main-content{
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    background: lightgray;
+    padding-top: 20px;
+}
+input{
+    width: 500px; /* 设置宽度 */
+    height: 40px; /* 设置高度 */
+    margin-top:50px;
+    margin-bottom: 50px;
+    padding: 0 10px; /* 内边距，确保内容不贴边 */
+    border: 1px solid #ccc; /* 边框 */
+    border-radius: 5px; /* 圆角 */
+    font-size: 16px; /* 字体大小 */
+    outline: none; /* 去除聚焦时的默认样式 */
+}
+
+.main-button{
+    width: 800px;
+    display:grid;
+    justify-content: end;
+    grid-template-columns: 100px 100px;
+    padding:10px;
+    border-radius: 5px;
+    gap:10px;
+    margin-bottom: 20px;
+}
+
+.file-table {
+    width: 800px;
+    border-collapse: collapse; /* 去掉单元格间的间隙 */
+}
+
+.file-header {
+    background-color: #f4f4f4;
+    text-align: left;
+}
+
+.file-header th {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.file-data td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
