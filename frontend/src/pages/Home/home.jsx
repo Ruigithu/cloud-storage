@@ -11,6 +11,10 @@ function Home() {
         // 添加更多示例文件
     ];
 
+    const handleUpload = (e)=>{
+        e.preventDefault()
+    }
+
     return (
         <div className="container">
 
@@ -28,12 +32,17 @@ function Home() {
             <div className="main-content">
                 <div className="search-bar">
                     <label className="search-bar" >
-                        <input placeholder="🔍search in the drive" size="50"/>
+                        <input className="search-box" placeholder=" 🔍search in the drive" size="50"/>
                     </label>
                 </div>
 
                 <div className="main-button">
-                    <button type="button">+Add New</button>
+                    <form onSubmit={handleUpload}>
+                        <label className="file-upload-btn">
+                            + Add New
+                            <input type="file" style={{display: 'none'}}/>
+                        </label>
+                    </form>
                     <button type="button">Change View</button>
                 </div>
 

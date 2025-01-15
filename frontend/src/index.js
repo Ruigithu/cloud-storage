@@ -5,16 +5,16 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 
 
-// 获取 root 节点
+// get root element
 const rootElement = document.getElementById('root');
-const root = ReactDOM.createRoot(rootElement); // 使用 createRoot 创建根实例
+const root = ReactDOM.createRoot(rootElement); // use createRoot to create root instance
 
-// 渲染应用
+// render  application
 root.render(
     <React.StrictMode>
-            <App />
+       <App />
     </React.StrictMode>
 );
-// script.js
+
 
 

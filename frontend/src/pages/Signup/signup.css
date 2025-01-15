@@ -1,0 +1,37 @@
+body{
+    background: #dddddd;
+}
+
+.form-container{
+    width:100vw;
+    height: 100vh;
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+}
+#username{
+    margin-top:100px;
+}
+.signup-input{
+    width:300px;
+    height:30px;
+    margin:15px;
+    border-radius: 8px;
+    font-size:16px;
+}
+
+.signup-submit{
+    width: 300px;
+    height:35px;
+    border-radius: 10px;
+    background-color: cadetblue;
+    color:white;
+    font-size:16px;
+    border:none;
+    margin-top:30px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.signup-submit:hover{
+    background-color: #4F8A8B;
+}

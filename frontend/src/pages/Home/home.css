@@ -44,7 +44,7 @@ img{
     background: lightgray;
     padding-top: 20px;
 }
-input{
+.search-box{
     width: 500px; /* 设置宽度 */
     height: 40px; /* 设置高度 */
     margin-top:50px;
@@ -65,6 +65,13 @@ input{
     border-radius: 5px;
     gap:10px;
     margin-bottom: 20px;
+}
+.file-upload-btn{
+    border: 1px solid;
+    font-size:12px;
+    padding: 3px;
+    background: aliceblue;
+    text-align: center;
 }
 
 .file-table {
