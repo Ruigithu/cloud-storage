@@ -4,25 +4,59 @@ html, body {
     height: 100%; /* 确保 body 和 html 的高度填满视窗 */
     box-sizing: border-box; /* 确保 padding 不影响宽高计算 */
 }
+.container{
+    display:grid;
+    grid-template-rows:auto auto;
+    background-color: aliceblue;
+    height:100vh;
+    gap: 0;
+
+}
+/*Header*/
+header{
+    display: grid;
+    grid-template-columns: 1fr 4fr 1fr;
+    background-color: aliceblue;
+    height: 100px;
+    justify-items: center; /* 水平方向居中 */
+    align-items: center;
+    margin-bottom: 0; /* 确保没有外边距 */
+}
 img{
     width:50px;
     height:50px;
 }
-.container{
+.search-box{
+    width: 500px; /* 设置宽度 */
+    height: 40px; /* 设置高度 */
+    padding: 0 10px; /* 内边距，确保内容不贴边 */
+    border: 1px solid #ccc; /* 边框 */
+    border-radius: 5px; /* 圆角 */
+    font-size: 16px; /* 字体大小 */
+    outline: none; /* 去除聚焦时的默认样式 */
+}
+.file-upload-btn{
+    border-radius: 5px;
+    font-size:12px;
+    padding: 3px;
+    background: aliceblue;
+    text-align: center;
+    outline: none;
+}
+.home-main-content{
     display:grid;
     grid-template-columns: 1fr 5fr;
-    grid-template-rows:1fr;
-    height:100vh;
-
+    height: calc(100vh - 100px); /* 剩余高度分配给主内容 */
 }
+
+/*aside nav*/
 .aside-nav{
     display: grid;
-    grid-template-rows:50px 50px 50px 50px 50px;
-    background: antiquewhite;
+    grid-template-rows:50px 50px 50px 50px 50px 50px 50px;
+    background:aliceblue;
     padding:50px;
-}
-img{
-    margin-bottom: 20px;
+    padding-top: 20px;
+    margin:0;
 }
 .aside-button{
     width:100%;
@@ -37,27 +71,20 @@ img{
     color: #333; /* 改变文字颜色 */
 }
 
+/*file-display*/
 .main-content{
     display:flex;
     flex-direction: column;
     align-items: center;
-    background: lightgray;
+    background: snow;
     padding-top: 20px;
-}
-.search-box{
-    width: 500px; /* 设置宽度 */
-    height: 40px; /* 设置高度 */
-    margin-top:50px;
-    margin-bottom: 50px;
-    padding: 0 10px; /* 内边距，确保内容不贴边 */
-    border: 1px solid #ccc; /* 边框 */
-    border-radius: 5px; /* 圆角 */
-    font-size: 16px; /* 字体大小 */
-    outline: none; /* 去除聚焦时的默认样式 */
+    border-radius: 20px;
+    margin-right: 20px;
+    margin-bottom: 20px;
 }
 
 .main-button{
-    width: 800px;
+    width: 1100px;
     display:grid;
     justify-content: end;
     grid-template-columns: 100px 100px;
@@ -66,16 +93,10 @@ img{
     gap:10px;
     margin-bottom: 20px;
 }
-.file-upload-btn{
-    border: 1px solid;
-    font-size:12px;
-    padding: 3px;
-    background: aliceblue;
-    text-align: center;
-}
+
 
 .file-table {
-    width: 800px;
+    width: 1000px;
     border-collapse: collapse; /* 去掉单元格间的间隙 */
 }
 
@@ -92,4 +113,16 @@ img{
 .file-data td {
     padding: 10px;
     border-bottom: 1px solid #ddd;
+}
+.fa-ellipsis {
+    position: relative;
+    cursor: pointer;
+    padding: 8px; /* 为图标添加间距，使其看起来更大 */
+    border-radius: 50%; /* 使背景变为圆形 */
+    transition: background-color 0.2s ease, box-shadow 0.2s ease; /* 平滑过渡 */
+}
+
+.fa-ellipsis:hover {
+    background-color: rgba(0, 0, 0, 0.08); /* 点击时的背景色 */
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.2); /* 点击时的阴影效果 */
 }

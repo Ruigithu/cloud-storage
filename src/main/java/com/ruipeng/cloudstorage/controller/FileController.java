@@ -3,17 +3,17 @@ package com.ruipeng.cloudstorage.controller;
 import com.ruipeng.cloudstorage.entity.File;
 import com.ruipeng.cloudstorage.service.FileService;
 import com.ruipeng.cloudstorage.util.SecurityUtil;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-@Controller
+@RestController
 public class FileController {
     private FileService fileService;
     private File file;
@@ -22,13 +22,18 @@ public class FileController {
         this.fileService = fileService;
         this.file = file;
     }
+    @GetMapping("/getAllFiles")
+    public ResponseEntity<List<File>> getAllFiles(@RequestParam int userId) {
+        List<File> files = fileService.getFiles(userId);
+        return ResponseEntity.ok().body(files);
+    }
 
     @PostMapping("/upload")
-    public String uploadFile(@RequestParam("fileUpload")MultipartFile uploadFile, Model model) throws IOException {
+    public ResponseEntity<List<File>> uploadFile(@RequestParam("file") MultipartFile uploadFile) throws IOException {
         System.out.println("开始上传文件");
-        if (uploadFile.isEmpty() || uploadFile==null){
-            return "redirect:/home";
-        }
+//        if (uploadFile.isEmpty() || uploadFile==null){
+//            return "redirect:/home";
+//        }
         file.setFilename(uploadFile.getOriginalFilename());
         System.out.println(uploadFile.getOriginalFilename());
         file.setContenttype(uploadFile.getContentType());
@@ -38,13 +43,8 @@ public class FileController {
 
         int i = fileService.uploadFile(file);
 
-        if (i==1){
-            System.out.println(i+" file uploaded");
-            model.addAttribute("uploadMessage","1 file uploaded");
-        }else {
-            model.addAttribute("uploadError","something wrong with the uploaded file");
-        }
-        return "redirect:/home";
+        System.out.println("i= "+i);
+        return ResponseEntity.ok().body(new ArrayList<File>());
     }
 
     @GetMapping("/deleteFile/{id}")
