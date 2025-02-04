@@ -19,15 +19,15 @@ public class UserService {
     }
 
     public boolean register(User user){
-        User findUser = userMapper.findByUsername(user.getUsername());
+        User findUser = userMapper.findByEmail(user.getEmail());
         if(findUser != null){
             System.out.println("User already exists");
         }else{
-            System.out.println("username:"+user.getUsername());
-            if (user.getPassword() == null || user.getPassword().isEmpty()) {
+            System.out.println("username:"+user.getName());
+            if (user.getPasswordHash() == null || user.getPasswordHash().isEmpty()) {
                 throw new IllegalArgumentException("the password can not be empty");
             }
-            user.setPassword(encoder.encode(user.getPassword()));
+            user.setPasswordHash(encoder.encode(user.getPasswordHash()));
             int i = userMapper.insertUser(user);
             System.out.println(i);
             if(i == 1){
@@ -35,6 +35,14 @@ public class UserService {
             }
         }
         return false;
+    }
+
+    public long getUserId(String email){
+        System.out.println(email);
+        System.out.println("进入getUserId");
+        long userId = userMapper.getUserId(email);
+        System.out.println("userId是"+userId);
+        return userId;
     }
 
 }

@@ -24,14 +24,14 @@ public class SecurityUtil {
 
 
     @Bean
-    public static int getCurrentUserId(){
+    public static long getCurrentUserId(){
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication!=null && authentication.getPrincipal() instanceof AppUserDetails){
             UserDetails userDetails = (AppUserDetails)authentication.getPrincipal();
             System.out.println(userDetails.getUsername());
             UserMapper userMapper = context.getBean(UserMapper.class);
-            User u = userMapper.findByUsername(userDetails.getUsername());
-            return u.getUserid();
+            User u = userMapper.findByEmail(userDetails.getUsername());
+            return u.getId();
         }
         return -1;
     }

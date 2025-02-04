@@ -1,8 +1,10 @@
 import React, { useState, useRef } from "react";
 import "./AddNewContextMenu.css";
 import UploadFile from "../UploadFile/UploadFile";
+import CreateFolder from "../CreateFolder/CreateFolder";
+import UploadFolder from "../UploadFolder/UploadFolder";
 
-    const AddNewContextMenu = ({ buttonLabel = "+ Add New" , onFileUploadSuccess }) => {
+    const AddNewContextMenu = ({ buttonLabel = "+ Add New" , onFileUploadSuccess ,parentId,userId}) => {
         const [isMenuVisible, setIsMenuVisible] = useState(false);
         const menuRef = useRef(null);
         const buttonRef = useRef(null);
@@ -46,15 +48,13 @@ import UploadFile from "../UploadFile/UploadFile";
                     <div ref={menuRef} className="menu-container">
                     <ul className="menu-list">
                         <li className="create-new">
-                            <UploadFile onFileUploadSuccess={onFileUploadSuccess}/>
+                            <UploadFile onFileUploadSuccess={onFileUploadSuccess} folderId={parentId} ownerId={userId}/>
                         </li>
-                        <li className="create-new"
-                            onClick={() => alert("Create Folder Selected")}>
-                            Create Folder
+                        <li className="create-new">
+                            <CreateFolder onFileUploadSuccess={onFileUploadSuccess} parentId={parentId} userId={userId}/>
                         </li>
-                        <li className="create-new"
-                            onClick={() => alert("Upload Folder Selected")}>
-                            Upload Folder
+                        <li className="create-new">
+                            <UploadFolder  onFileUploadSuccess={onFileUploadSuccess} parentId={parentId} userId={userId}/>
                         </li>
                     </ul>
                     </div>

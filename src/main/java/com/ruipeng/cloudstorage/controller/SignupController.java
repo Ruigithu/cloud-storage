@@ -18,7 +18,7 @@ public class SignupController {
 
     @PostMapping("/signup")
     public ResponseEntity<Map<String, String>> signup(@RequestBody User user) {
-        System.out.println(user.getFirstname());
+        System.out.println(user.getName());
         boolean registered = userService.register(user);
         Map<String, String> response = new HashMap<>();
         if (registered) {

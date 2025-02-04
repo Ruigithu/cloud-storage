@@ -1,23 +1,34 @@
 package com.ruipeng.cloudstorage.mappers;
 
+
 import com.ruipeng.cloudstorage.entity.User;
 import org.apache.ibatis.annotations.*;
 
 @Mapper
 public interface UserMapper {
-    @Select("SELECT * FROM USERS WHERE username = #{username}")
-    @Results({
-            @Result(property = "userid", column = "userid"),
-            @Result(property = "username", column = "username"),
-            @Result(property = "salt", column = "salt"),
-            @Result(property = "password", column = "password"),
-            @Result(property = "firstname", column = "firstname"),
-            @Result(property = "lastname", column = "lastname")
-    })
-    User findByUsername(String username);
 
-    @Insert("INSERT INTO USERS (username, salt, password, firstname, lastname ) " +
-            "VALUES (#{username}, #{salt}, #{password}, #{firstname}, #{lastname})")
-    @Options(useGeneratedKeys = true, keyProperty = "userid")
+    // 通过 email 查找用户
+    @Select("SELECT * FROM users WHERE email = #{email}")
+    @Results({
+            @Result(property = "id", column = "id"),
+            @Result(property = "email", column = "email"),
+            @Result(property = "passwordHash", column = "password_hash"),
+            @Result(property = "name", column = "name"),
+            @Result(property = "createdAt", column = "created_at"),
+            @Result(property = "updatedAt", column = "updated_at")
+    })
+    User findByEmail(String email);
+
+    // 插入新用户
+    @Insert("INSERT INTO users (email, password_hash, name) " +
+            "VALUES (#{email}, #{passwordHash}, #{name})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertUser(User user);
+
+    @Select("SELECT id FROM users WHERE email = #{email}")
+    @Results({
+            @Result(property = "id", column = "id")
+    })
+    long getUserId(String email);
 }
+

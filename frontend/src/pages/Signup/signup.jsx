@@ -1,27 +1,25 @@
 import {useState} from "react";
 import {useNavigate} from "react-router-dom";
-import signupCss from  "./signup.css"
+import   "./signup.css"
 
 function Signup(){
-    const[username,setUsername]=useState('');
-    const[password,setPassword]=useState('');
-    const[firstname,setFirstname]=useState('');
-    const[lastname,setLastname]=useState('');
+    const[passwordHash,setPasswordHash]=useState('');
+    const[name,setName]=useState('');
+    const[email,setEmail]=useState('');
 
     const navigate =useNavigate();
 
     const handleSubmit = async (e)=>{
         e.preventDefault();
-        if (!username || !password || !firstname || !lastname) {
+        if (!name || !passwordHash || !email) {
             alert('you have to fill all the fields！');
             return;
         }
 
         const userData = {
-            username: username.trim(),
-            password: password.trim(),
-            firstname: firstname.trim(),
-            lastname: lastname.trim()
+            name: name.trim(),
+            email: email.trim(),
+            passwordHash: passwordHash.trim()
         };
 
         console.log('the sending data:', userData);
@@ -54,40 +52,32 @@ function Signup(){
     return(
         <div className="signup-container">
             <form className="form-container" onSubmit={handleSubmit}>
-                <label id="username"> username:
+                <label id="name"> name:
                     <br/>
                     <input className="signup-input"
                            type="text"
-                           value={username}
+                           value={name}
                            onChange={
-                               (e) => setUsername(e.target.value)
+                               (e) => setName(e.target.value)
+                           }/>
+                </label>
+
+                <label>email:
+                    <br/>
+                    <input className="signup-input" id="firstname"
+                           type="text"
+                           value={email}
+                           onChange={
+                               (e) => setEmail(e.target.value)
                            }/>
                 </label>
                 <label>password:
                     <br/>
                     <input className="signup-input" id="password"
                            type="password"
-                           value={password}
+                           value={passwordHash}
                            onChange={
-                               (e) => setPassword(e.target.value)
-                           }/>
-                </label>
-                <label>firstname:
-                    <br/>
-                    <input className="signup-input" id="firstname"
-                           type="text"
-                           value={firstname}
-                           onChange={
-                               (e) => setFirstname(e.target.value)
-                           }/>
-                </label>
-                <label>lastname:
-                    <br/>
-                    <input className="signup-input" id="lastname"
-                           type="text"
-                           value={lastname}
-                           onChange={
-                               (e) => setLastname(e.target.value)
+                               (e) => setPasswordHash(e.target.value)
                            }/>
                 </label>
                 <button className="signup-submit" type="submit">Sign in</button>

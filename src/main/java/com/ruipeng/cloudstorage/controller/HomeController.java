@@ -2,9 +2,12 @@ package com.ruipeng.cloudstorage.controller;
 
 
 import com.ruipeng.cloudstorage.entity.File;
+import com.ruipeng.cloudstorage.entity.UserInfo;
 import com.ruipeng.cloudstorage.service.FileService;
 import com.ruipeng.cloudstorage.util.SecurityUtil;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,12 +25,13 @@ public class HomeController {
 
     @GetMapping("/home")
     public ResponseEntity<?> home() {
-        int currentUserId =SecurityUtil.getCurrentUserId();
+        long currentUserId = SecurityUtil.getCurrentUserId();
 
-        List<File> files = fileService.getFiles(currentUserId);
-        System.out.println("一共有文件："+files.size());
+        List<File> files = fileService.getFiles(currentUserId,0);
+        System.out.println("一共有文件：" + files.size());
 
 
         return ResponseEntity.ok().body(Map.of("message", "Successfully accessed home"));
     }
+
 }

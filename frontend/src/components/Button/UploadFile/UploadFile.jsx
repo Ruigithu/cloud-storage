@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function UploadFile({ onFileUploadSuccess }) {
+function UploadFile({ onFileUploadSuccess,ownerId,folderId }) {
     const [isUploading, setIsUploading] = useState(false);
 
     const handleUploadFile = async (e) => {
@@ -12,6 +12,10 @@ function UploadFile({ onFileUploadSuccess }) {
             setIsUploading(true);
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('userId',ownerId);
+            console.log(`ownerId是`)
+            console.log(ownerId);
+            formData.append('folderId',folderId);
 
             const response = await fetch("http://localhost:8080/upload", {
                 method: 'POST',
@@ -21,10 +25,12 @@ function UploadFile({ onFileUploadSuccess }) {
 
             if (response.ok) {
                 alert('File uploaded successfully');
+                console.log(response.json())
                 if (onFileUploadSuccess) {
                     onFileUploadSuccess();  // 调用父组件的回调函数
                 }
             } else {
+
                 console.error('Upload failed');
             }
         } catch (error) {

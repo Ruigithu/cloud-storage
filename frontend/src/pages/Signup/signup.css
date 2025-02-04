@@ -2,6 +2,10 @@ body{
     background: #dddddd;
 }
 
+#name{
+    margin-top: 200px;
+}
+
 .form-container{
     width:100vw;
     height: 100vh;

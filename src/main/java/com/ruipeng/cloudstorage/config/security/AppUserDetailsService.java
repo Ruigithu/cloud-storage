@@ -20,7 +20,7 @@ public class AppUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         System.out.println("loadByUsername: "+username);
-        User user = userMapper.findByUsername(username);
+        User user = userMapper.findByEmail(username);
         if (user == null) {
             System.out.println("user not found");
             throw new UsernameNotFoundException(username);

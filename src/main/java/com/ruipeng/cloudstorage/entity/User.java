@@ -1,74 +1,81 @@
 package com.ruipeng.cloudstorage.entity;
 
 
+import lombok.Data;
 import org.springframework.stereotype.Component;
 
-@Component
-public class User {
-    private int userid;
-    private String username;
-    private String salt;
-    private String password;
-    private String firstname;
-    private String lastname;
+import java.time.Instant;
 
-    public User() {
+    @Component
+    @Data
+    public class User {
+        private Long id;
+        private String email;
+        private String passwordHash;
+        private String name;
+        private Instant createdAt;
+        private Instant updatedAt;
+
+
+        public User(Long id, String email, String passwordHash, String name, Instant createdAt, Instant updatedAt) {
+            this.id = id;
+            this.email = email;
+            this.passwordHash = passwordHash;
+            this.name = name;
+            this.createdAt = createdAt;
+            this.updatedAt = updatedAt;
+        }
+
+        public User() {
+        }
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPasswordHash() {
+            return passwordHash;
+        }
+
+        public void setPasswordHash(String passwordHash) {
+            this.passwordHash = passwordHash;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public Instant getCreatedAt() {
+            return createdAt;
+        }
+
+        public void setCreatedAt(Instant createdAt) {
+            this.createdAt = createdAt;
+        }
+
+        public Instant getUpdatedAt() {
+            return updatedAt;
+        }
+
+        public void setUpdatedAt(Instant updatedAt) {
+            this.updatedAt = updatedAt;
+        }
     }
 
-    public User(int userid, String username, String salt, String password, String firstname, String lastname) {
-        this.userid = userid;
-        this.username = username;
-        this.salt = salt;
-        this.password = password;
-        this.firstname = firstname;
-        this.lastname = lastname;
-    }
 
-    public int getUserid() {
-        return userid;
-    }
-
-    public void setUserid(int userid) {
-        this.userid = userid;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getSalt() {
-        return salt;
-    }
-
-    public void setSalt(String salt) {
-        this.salt = salt;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public String getFirstname() {
-        return firstname;
-    }
-
-    public void setFirstname(String firstname) {
-        this.firstname = firstname;
-    }
-
-    public String getLastname() {
-        return lastname;
-    }
-
-    public void setLastname(String lastname) {
-        this.lastname = lastname;
-    }
-}

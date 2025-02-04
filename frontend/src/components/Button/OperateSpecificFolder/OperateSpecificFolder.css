@@ -1,0 +1,45 @@
+.operate-file-menu-container {
+    position: relative;
+    display: inline-block;
+}
+.menu-container{
+    position: absolute;
+    padding: 5px;
+    top:140%;
+    width: auto;
+    height: fit-content;
+    background-color: white;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    z-index: 1000;
+    border: 1px solid #E5E7EB;
+}
+
+.menu-list{
+    list-style-type: none;
+    border-radius: 5px;
+    padding: 5px;
+}
+
+.more{
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-bottom: 5px;
+}
+.more:hover{
+    background-color: #dddddd;
+}
+.fa-ellipsis {
+    position: relative;
+    cursor: pointer;
+    padding: 8px; /* 为图标添加间距，使其看起来更大 */
+    border-radius: 50%; /* 使背景变为圆形 */
+    transition: background-color 0.2s ease, box-shadow 0.2s ease; /* 平滑过渡 */
+}
+
+
+.fa-ellipsis:hover {
+    background-color: rgba(0, 0, 0, 0.08); /* 点击时的背景色 */
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.2); /* 点击时的阴影效果 */
+}

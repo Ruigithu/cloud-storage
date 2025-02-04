@@ -30,13 +30,12 @@ function Login(){
                 },
 //transform it to the format of "username=Alice&password=12345"
                 body: formData.toString(),
-                credentials: 'include' // include cookies
+                credentials: 'include' // include cookies//这里有必要吗
             });
 
             //get the authentication response
             if (response.ok){
                 const data = await response.json();
-                localStorage.setItem("token","");
                 navigate("/home")
             }
 

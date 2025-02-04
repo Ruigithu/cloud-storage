@@ -1,73 +1,108 @@
 package com.ruipeng.cloudstorage.entity;
 
+import lombok.Data;
 import org.springframework.stereotype.Component;
 
-@Component
-public class File {
-    private int fileid;
-    private String filename;
-    private String contenttype;
-    private long filesize;
-    private int userid;
-    private byte[] filedata;
+import java.time.Instant;
 
-    public File(int fileid, String filename, String contenttype, long filesize, int userid, byte[] filedata) {
-        this.fileid = fileid;
-        this.filename = filename;
-        this.contenttype = contenttype;
-        this.filesize = filesize;
-        this.userid = userid;
-        this.filedata = filedata;
+
+@Component
+@Data
+public class File {
+    private Long id;
+    private String name;
+    private long folderId;
+    private Long ownerId;
+    private String mimeType;
+    private Long size;
+    private Instant createdAt;
+    private Instant updatedAt;
+    private boolean isDeleted;
+
+    public File(Long id, String name, long folderId, Long ownerId, String mimeType, Long size, Instant createdAt, Instant updatedAt, boolean isDeleted) {
+        this.id = id;
+        this.name = name;
+        this.folderId = folderId;
+        this.ownerId = ownerId;
+        this.mimeType = mimeType;
+        this.size = size;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.isDeleted = isDeleted;
     }
 
     public File() {
     }
 
-    public int getFileid() {
-        return fileid;
+    public Long getId() {
+        return id;
     }
 
-    public void setFileid(int fileid) {
-        this.fileid = fileid;
+    public void setId(Long id) {
+        this.id = id;
     }
 
-    public String getFilename() {
-        return filename;
+    public String getName() {
+        return name;
     }
 
-    public void setFilename(String filename) {
-        this.filename = filename;
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public String getContenttype() {
-        return contenttype;
+    public long getFolderId() {
+        return folderId;
     }
 
-    public void setContenttype(String contenttype) {
-        this.contenttype = contenttype;
+    public void setFolderId(long folderId) {
+        this.folderId = folderId;
     }
 
-    public long getFilesize() {
-        return filesize;
+    public Long getOwnerId() {
+        return ownerId;
     }
 
-    public void setFilesize(long filesize) {
-        this.filesize = filesize;
+    public void setOwnerId(Long ownerId) {
+        this.ownerId = ownerId;
     }
 
-    public int getUserid() {
-        return userid;
+    public String getMimeType() {
+        return mimeType;
     }
 
-    public void setUserid(int userid) {
-        this.userid = userid;
+    public void setMimeType(String mimeType) {
+        this.mimeType = mimeType;
     }
 
-    public byte[] getFiledata() {
-        return filedata;
+    public Long getSize() {
+        return size;
     }
 
-    public void setFiledata(byte[] filedata) {
-        this.filedata = filedata;
+    public void setSize(Long size) {
+        this.size = size;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public boolean isDeleted() {
+        return isDeleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        isDeleted = deleted;
     }
 }
