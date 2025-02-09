@@ -39,7 +39,7 @@ const OperateSpecificDeletedFile = ({file,userId}) => {
 
     async function handleDeleteFile(fileId, userId) {
         try {
-            const response = await fetch(`http://localhost:8080/softDeleteFile?fileId=${fileId}&userId=${userId}`, {
+            const response = await fetch(`http://localhost:8080/deleteFile?fileId=${fileId}&userId=${userId}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"

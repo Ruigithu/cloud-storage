@@ -14,10 +14,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.session.SessionManagementFilter;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
-import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
@@ -44,26 +42,58 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(request -> corsConfiguration))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/signup",  //
-                                "/login",     // include login page url
+                        .requestMatchers(
+                                "/signup",
+                                "/login",
+                                "/share/**",
+                                "/download",
                                 "/css/**",
                                 "/js/**",
-                                "/h2-console/**")
-                        .permitAll()
-                        .anyRequest()
-                        .authenticated()
+                                "/h2-console/**"
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            // 检查是否是API请求（通过Accept头或URL路径判断）
+                            boolean isApiRequest = request.getHeader("Accept") != null &&
+                                    request.getHeader("Accept").contains("application/json") ||
+                                    request.getRequestURI().startsWith("/share/");
+
+                            if (isApiRequest) {
+                                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                                response.setContentType("application/json");
+                                response.getWriter().write("{\"error\":\"Unauthorized\"}");
+                            } else {
+                                response.sendRedirect("/login");
+                            }
+                        })
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
-                        .failureHandler(failureHandler)
-                        .defaultSuccessUrl("/home", true)
-                )
-                .logout(logout -> logout
-                        .logoutUrl("/logout")
-                        .logoutSuccessHandler(logoutHandler)
-                        .logoutSuccessUrl("/login?logoutMessage=You have been logged out")//
-                        .invalidateHttpSession(true) // invalidate session
-                        .clearAuthentication(true) // clean verification information
+                        .loginProcessingUrl("/login")  // 使用原有的登录URL
+                        .successHandler((request, response, authentication) -> {
+                            // 检查是否是API请求
+                            if (request.getHeader("Accept") != null &&
+                                    request.getHeader("Accept").contains("application/json")) {
+                                response.setStatus(HttpServletResponse.SC_OK);
+                                response.setContentType("application/json");
+                                response.getWriter().write("{\"success\":true}");
+                            } else {
+                                response.sendRedirect("/home");
+                            }
+                        })
+                        .failureHandler((request, response, exception) -> {
+                            if (request.getHeader("Accept") != null &&
+                                    request.getHeader("Accept").contains("application/json")) {
+                                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                                response.setContentType("application/json");
+                                response.getWriter().write("{\"error\":\"Invalid credentials\"}");
+                            } else {
+                                failureHandler.onAuthenticationFailure(request, response, exception);
+                            }
+                        })
+                        .permitAll()
                 );
 
         return http.build();

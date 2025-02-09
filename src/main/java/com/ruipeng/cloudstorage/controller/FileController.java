@@ -1,28 +1,41 @@
 package com.ruipeng.cloudstorage.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruipeng.cloudstorage.config.file.FileStorageConfig;
-import com.ruipeng.cloudstorage.entity.DownloadFileInfo;
-import com.ruipeng.cloudstorage.entity.File;
-import com.ruipeng.cloudstorage.entity.FilePermission;
-import com.ruipeng.cloudstorage.entity.User;
+import com.ruipeng.cloudstorage.entity.*;
+import com.ruipeng.cloudstorage.mappers.FileVersionMapper;
 import com.ruipeng.cloudstorage.service.FileService;
+import org.apache.poi.hwpf.HWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 @RestController
 public class FileController {
     private final FilePermission filePermission;
     private final User user;
+    private final FileVersionMapper fileVersionMapper;
     private FileService fileService;
     private File file;
     private FileStorageConfig storage;
@@ -31,18 +44,20 @@ public class FileController {
 
 
 
-    public FileController(FileService fileService, File file , FileStorageConfig storage, FilePermission filePermission, User user) {
+    public FileController(FileService fileService, File file , FileStorageConfig storage, FilePermission filePermission, User user, FileVersionMapper fileVersionMapper) {
         this.fileService = fileService;
         this.file = file;
         this.storage = storage;
         this.filePermission = filePermission;
         this.user = user;
+        this.fileVersionMapper = fileVersionMapper;
     }
 
     @GetMapping("/getAllFiles")
     public ResponseEntity<List<File>> getAllFiles(@RequestParam long folderId,@RequestParam long ownerId) {
         System.out.println("请求所有的files"+"ownerId是："+ownerId+"folderId是："+folderId);
         System.out.println();
+        System.out.println(System.getProperty("java.io.tmpdir"));
         if (folderId==-1){
             folderId=0;
         }
@@ -50,6 +65,12 @@ public class FileController {
 
         return ResponseEntity.ok().body(files);
     }
+
+    @GetMapping("/getFileByUserIdAndFileId")
+    public ResponseEntity<?> getFileByUserIdAndFileId(@RequestParam long ownerId, @RequestParam long fileId) {
+        return fileService.getFileByUserIdAndFileId(ownerId,fileId);
+    }
+
 
     @PostMapping("/upload")
     public ResponseEntity<File> uploadFile(@RequestParam("file") MultipartFile uploadFile,@RequestParam("userId")long ownerId,@RequestParam("folderId")long folderId) throws IOException {
@@ -130,6 +151,31 @@ public class FileController {
         }
     }
 
+    @PostMapping("/convert-doc")
+    public ResponseEntity<?> convertDoc(@RequestParam("file") MultipartFile file) {
+        try {
+            // 使用 Apache POI 读取 doc/docx 文件
+            XWPFDocument document;
+            if (file.getOriginalFilename().endsWith(".docx")) {
+                document = new XWPFDocument(file.getInputStream());
+            } else {
+                HWPFDocument doc = new HWPFDocument(file.getInputStream());
+                // 转换 doc 文件内容
+                return ResponseEntity.ok(doc.getDocumentText());
+            }
 
+            // 提取文本内容
+            StringBuilder text = new StringBuilder();
+            for (XWPFParagraph paragraph : document.getParagraphs()) {
+                text.append(paragraph.getText()).append("\n");
+            }
+
+            // 返回转换后的内容
+            return ResponseEntity.ok(text.toString());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("文档转换失败: " + e.getMessage());
+        }
+    }
 }
 

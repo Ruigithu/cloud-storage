@@ -33,6 +33,19 @@ public interface FileVersionMapper {
     })
     List<FileVersion> getVersionsByFileId(Long fileId);
 
+    @Select("SELECT * FROM file_versions WHERE file_id = #{fileId}")
+    @Results({
+            @Result(property = "id",column = "id"),
+            @Result(property = "fileId",column = "file_id"),
+            @Result(property = "versionNumber",column = "version_number"),
+            @Result(property = "storagePath",column = "storage_path"),
+            @Result(property = "size",column = "size"),
+            @Result(property = "createdBy",column = "created_by"),
+            @Result(property = "createdAt",column = "created_at"),
+            @Result(property = "comment",column = "comment")
+    })
+    FileVersion getVersionByFileId(Long fileId);
+
     @Delete("DELETE FROM file_versions WHERE file_id = #{fileId}")
     void deleteByFileId(Long fileId);
 

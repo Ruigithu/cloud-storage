@@ -1,5 +1,6 @@
 import React, {useRef, useState} from "react";
 import "./OperateSpecificFile.css"
+import ShareFileDialog from "../ShareFileDialog/ShareFileDialog";
 
 
 const OperateSpecificFile = ({file,userId}) => {
@@ -113,9 +114,8 @@ const OperateSpecificFile = ({file,userId}) => {
                             onClick={() =>{handleDeleteFile(file.id,userId)} }>
                             Delete
                         </li>
-                        <li className="share more"
-                            onClick={() => alert("Share Selected")}>
-                            Share
+                        <li className="share more">
+                            <ShareFileDialog fileId={file.id}/>
                         </li>
                     </ul>
                 </div>

@@ -3,9 +3,11 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from "./pages/Home/home";
 import Login from "./pages/Login/login"
 import Signup from "./pages/Signup/signup";
-import MyShared from "./components/SideBar/SideBarNav/MySharred/MySharred";
+import MyShared from "./components/SideBar/SideBarNav/MySharred/MyShared";
 import Collaboration from "./components/SideBar/SideBarNav/Collaboration/Collaboration";
 import Bin from "./components/SideBar/SideBarNav/Bin/Bin";
+import EditorPage from "./components/Tool/QuillEditor/EditPage";
+import ShareHandler from "./pages/Share/ShareHandler";
  function App() {
     return(
      <BrowserRouter>
@@ -14,9 +16,12 @@ import Bin from "./components/SideBar/SideBarNav/Bin/Bin";
              <Route path="/login" element={<Login/>}/>
              <Route path="/signup" element={<Signup/>}/>
              <Route path='' element={<Login/>}/>
-             <Route path="/my-sharred" element={<MyShared />} />
+             <Route path="/my-shared" element={<MyShared />} />
              <Route path="/collaboration" element={<Collaboration />} />
              <Route path="/bin" element={<Bin />} />
+             <Route path="/editor/:fileId" element={<EditorPage/>}/>
+             <Route path="/share/:shareId" element={<ShareHandler/>}/>
+
          </Routes>
      </BrowserRouter>
     );

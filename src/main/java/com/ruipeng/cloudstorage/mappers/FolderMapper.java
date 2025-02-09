@@ -46,8 +46,8 @@ public interface FolderMapper {
     void updatePath(@Param("id") Long id, @Param("path") PGobject path, @Param("updatedAt") Instant updatedAt);
 
 
-    @Select("SELECT EXISTS(SELECT 1 FROM folders WHERE id = #{id})")
-    boolean existsById(@Param("id") Long id);
+    @Select("SELECT EXISTS(SELECT 1 FROM folders WHERE id = #{id} AND owner_id=#{userId})")
+    boolean existsById(@Param("id") Long id, Long userId);
 
     @Select("SELECT * FROM folders WHERE owner_id = #{ownerId} AND parent_id=#{parentId} AND is_deleted = FALSE")
     @Results({
@@ -106,4 +106,10 @@ public interface FolderMapper {
 
     @Update("UPDATE folders SET is_deleted = #{isDeleted}, updated_at = #{updatedAt} WHERE id = #{id}")
     int updateFolderDeleteStatus(Folder folder);
+
+    @Select("select * from folders where id=#{folderId}")
+    Folder getFolderByFolderId(Long folderId);
+
+    @Select("SELECT id FROM folders WHERE owner_id = #{userId} AND parent_id IS NULL LIMIT 1")
+    Long getUserRootFolderId(Long userId);
 }

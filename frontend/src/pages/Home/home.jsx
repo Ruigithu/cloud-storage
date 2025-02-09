@@ -7,6 +7,7 @@ import Sidebar from "../../components/SideBar/SideBar";
 import { useDispatch } from 'react-redux';
 import {setUserInfo} from "../../components/Tool/UserInfo/userSlice";
 import OperateSpecificFolder from "../../components/Button/OperateSpecificFolder/OperateSpecificFolder";
+import {useNavigate} from "react-router-dom";
 
 function Home() {
     const [files, setFiles] = useState([]);
@@ -14,6 +15,7 @@ function Home() {
     const [actualUserId,setActualUserId] = useState(null);
     const [rootFolderId,setRootFolderId]=useState(1)
     const dispatch=useDispatch();
+    const navigate =useNavigate();
     const [navigationPath, setNavigationPath] = useState([{ id: 1, name: 'root' }]);
     //获取用户id 存到localstorage
     const fetchUserId = async()=>{
@@ -29,10 +31,12 @@ function Home() {
                 // 存储到 Redux
                 dispatch(setUserInfo(userInfo));
                 // 只存储 ID 到 localStorage（避免 undefined）
-                if (userInfo?.userId !== undefined) {
+                if (userInfo?.userId !== undefined && userInfo?.userName!==undefined) {
                     localStorage.setItem('userId', userInfo.userId);
+                    localStorage.setItem(`${userInfo.userId}`,userInfo.userName);
                     setActualUserId(userInfo.userId);
                     console.log(`userId:`+localStorage.getItem('userId'));
+                    console.log(`userName:`+localStorage.getItem(`${userInfo.userId}`));
                 }
             }
         }catch (error){
@@ -115,6 +119,10 @@ function Home() {
     const handleFolderClick = (folderId, folderName) => {
         setRootFolderId(folderId);
         setNavigationPath(prev => [...prev, { id: folderId, name: folderName }]);
+    };
+
+    const handleFileClick = (fileId) => {
+        navigate(`/editor/${fileId}`);
     };
 
     const handleBackward = () => {
@@ -210,10 +218,11 @@ function Home() {
                                     </tr>
                                 ))}
                                 {files.map(file => (
-                                    <tr key={file.id} className="file-data">
+                                    //onClick={()=>handleFileClick(file.id)}
+                                    <tr key={file.id} className="file-data" >
                                         <td><i className={getFileIcon(file.mimeType)} style={{color: fileIcons[getFileIcon(file.mimeType)]}}></i> {file.name}</td>
                                         <td>{file.updatedAt}</td>
-                                        <td>{formatFileSize(file.size)}</td>
+                                        <td>{file.mimeType}</td>
                                         <td><OperateSpecificFile file={file} userId={localStorage.getItem('userId')}/></td>
                                     </tr>
                                 ))}

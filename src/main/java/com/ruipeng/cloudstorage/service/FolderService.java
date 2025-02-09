@@ -19,15 +19,12 @@ import java.net.URI;
 import java.nio.file.*;
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class FolderService {
-    private final FileService fileService;
+    private  FileService fileService;
     private FilePermissionMapper filePermissionMapper;
     private FolderMapper folderMapper;
     private FileMapper fileMapper;
@@ -36,7 +33,7 @@ public class FolderService {
     public static final Long ROOT_FOLDER_ID = 1L;
 
     @Autowired
-    public FolderService(FilePermissionMapper filePermissionMapper, FolderMapper folderMapper, FileMapper fileMapper, FileService fileService,FileVersionMapper fileVersionMapper) {
+    public FolderService(FilePermissionMapper filePermissionMapper, FolderMapper folderMapper, FileMapper fileMapper, FileService fileService, FileVersionMapper fileVersionMapper) {
         this.filePermissionMapper = filePermissionMapper;
         this.folderMapper = folderMapper;
         this.fileMapper = fileMapper;
@@ -44,12 +41,16 @@ public class FolderService {
         this.fileVersionMapper = fileVersionMapper;
     }
 
+    public FolderService() {
+    }
 
     private void initRootFolderIfNotExists(Long userId) throws SQLException {
+        System.out.println("check结果"+folderMapper.existsById(ROOT_FOLDER_ID,userId));
         // First check if root folder exists using a transaction to prevent race conditions
-        if (!folderMapper.existsById(ROOT_FOLDER_ID)) {
+        if (!folderMapper.existsById(ROOT_FOLDER_ID,userId)) {
+
             synchronized (this) {  // Double-checked locking pattern
-                if (!folderMapper.existsById(ROOT_FOLDER_ID)) {
+                if (!folderMapper.existsById(ROOT_FOLDER_ID,userId)) {
                     // Create root folder first
                     Folder rootFolder = new Folder();
                     rootFolder.setId(ROOT_FOLDER_ID);
@@ -60,7 +61,7 @@ public class FolderService {
                     // Set up the ltree path
                     PGobject ltreePath = new PGobject();
                     ltreePath.setType("ltree");
-                    ltreePath.setValue(ROOT_FOLDER_ID.toString());
+                    ltreePath.setValue(String.valueOf(0L));
                     rootFolder.setPath(ltreePath);
 
                     rootFolder.setCreatedAt(Instant.now());
@@ -69,6 +70,7 @@ public class FolderService {
 
                     // Insert the folder first
                     int insertResult = folderMapper.insert(rootFolder);
+                    System.out.println("成功创建根目录");
 
                     // Only create permission if folder was successfully created
                     if (insertResult > 0) {
@@ -101,6 +103,7 @@ public class FolderService {
         System.out.println("====================创建文件夹=======================");
         // 确保根目录存在
         if (parentId == 1L || ROOT_FOLDER_ID.equals(parentId)) {
+            System.out.println("这里创建根目录了吗");
             initRootFolderIfNotExists(userId);
             parentId = ROOT_FOLDER_ID;
         }
@@ -170,7 +173,16 @@ public class FolderService {
         permission.setPermission(PermissionType.ADMIN);
         permission.setCreatedAt(Instant.now());
         permission.setCreatedBy(userId);
-        filePermissionMapper.insert(permission);
+        System.out.println(
+                "folderId:"+permission.getFolderId()+
+                "userId:"+permission.getUserId()+
+                "permission:"+permission.getPermission()+
+                        "createdAt:"+permission.getCreatedAt()+
+                        "createdBy:"+permission.getCreatedBy()
+        );
+
+            filePermissionMapper.insert(permission);
+
         System.out.println();
         System.out.println("======================创建文件夹完成========================");
 
@@ -201,34 +213,42 @@ public class FolderService {
         }
 
         // 3. 检查权限
-        FilePermission permission = filePermissionMapper.findByFolderIdAndUserId(folderId, userId);
+        List<FilePermission> permission = filePermissionMapper.findListByFolderIdAndUserId(folderId, userId);
         if (permission != null) {
-            System.out.println("Permission type: " + permission.getPermission());
-            System.out.println("Is ADMIN? " + (permission.getPermission() == PermissionType.ADMIN));
-            System.out.println("Permission class: " + permission.getPermission().getClass());
+            for (FilePermission per : permission) {
+                System.out.println("Permission type: " + per.getPermission());
+                System.out.println("Is ADMIN? " + (per.getPermission() == PermissionType.ADMIN));
+                System.out.println("Permission class: " + per.getPermission().getClass());
+            }
         }
         System.out.println("权限检查完成");
 
         try {
             // 4. 获取子文件夹
             List<Folder> subFolders = folderMapper.findSubFolders(folder.getPath(), folderId);
+            System.out.println(subFolders.size());
+             //5. 获取所有文件
+            List<Long> folderIds = new ArrayList<>();
+            if (!subFolders.isEmpty()) {
+                folderIds.addAll(subFolders.stream()
+                        .map(Folder::getId)
+                        .toList());
+            }
 
-            // 5. 获取所有文件
-            List<File> allFiles = fileMapper.findFilesByFolderIds(
-                    subFolders.stream()
-                            .map(Folder::getId)
-                            .collect(Collectors.toList()),
-                    folderId
-            );
+            List<File> allFiles = fileMapper.findFilesByFolderIds(folderIds, folderId);
 
             // 6. 软删除所有文件
-            for (File file : allFiles) {
-                fileService.softDeleteFile(file.getId(), userId);
+            if (allFiles != null && !allFiles.isEmpty()) {
+                for (File file : allFiles) {
+                    fileService.softDeleteFile(file.getId(), userId);
+                }
             }
 
             // 7. 标记文件夹为已删除
             folder.setDeleted(true);
+            System.out.println("执行到这里0");
             folder.setUpdatedAt(Instant.now());
+            System.out.println("执行到这里1");
 
             // 8. 同样标记所有子文件夹为已删除
             for (Folder subFolder : subFolders) {
@@ -236,6 +256,7 @@ public class FolderService {
                 subFolder.setUpdatedAt(Instant.now());
                 folderMapper.updateFolderDeleteStatus(subFolder);
             }
+            System.out.println("执行到这里2");
 
             return folderMapper.updateFolderDeleteStatus(folder);
         } catch (Exception e) {
@@ -256,11 +277,13 @@ public class FolderService {
             throw new RuntimeException("文件夹未被删除，无需恢复");
         }
 
-        FilePermission permission = filePermissionMapper.findByFolderIdAndUserId(folderId, userId);
+        List<FilePermission> permission = filePermissionMapper.findListByFolderIdAndUserId(folderId, userId);
         if (permission != null) {
-            System.out.println("Permission type: " + permission.getPermission());
-            System.out.println("Is ADMIN? " + (permission.getPermission() == PermissionType.ADMIN));
-            System.out.println("Permission class: " + permission.getPermission().getClass());
+            for (FilePermission per : permission) {
+                System.out.println("Permission type: " + per.getPermission());
+                System.out.println("Is ADMIN? " + (per.getPermission() == PermissionType.ADMIN));
+                System.out.println("Permission class: " + per.getPermission().getClass());
+            }
         }
         System.out.println("权限检查完成");
 
@@ -298,7 +321,7 @@ public class FolderService {
 
     // 硬删除文件夹
     public int deleteFolder(Long folderId, Long userId) throws IOException {
-        Folder folder = folderMapper.findById(folderId);
+        Folder folder = folderMapper.findDeletedById(folderId);
         if (folder == null) {
             throw new RuntimeException("文件夹不存在");
         }
@@ -307,16 +330,19 @@ public class FolderService {
             throw new RuntimeException("不能删除根目录");
         }
 
-        FilePermission permission = filePermissionMapper.findByFolderIdAndUserId(folderId, userId);
+        List<FilePermission> permission = filePermissionMapper.findListByFolderIdAndUserId(folderId, userId);
         if (permission != null) {
-            System.out.println("Permission type: " + permission.getPermission());
-            System.out.println("Is ADMIN? " + (permission.getPermission() == PermissionType.ADMIN));
-            System.out.println("Permission class: " + permission.getPermission().getClass());
+            for (FilePermission per : permission) {
+                System.out.println("Permission type: " + per.getPermission());
+                System.out.println("Is ADMIN? " + (per.getPermission() == PermissionType.ADMIN));
+                System.out.println("Permission class: " + per.getPermission().getClass());
+            }
         }
         System.out.println("权限检查完成");
 
         try {
             List<Folder> subFolders = folderMapper.findSubFolders(folder.getPath(), folderId);
+            subFolders.add(folderMapper.getFolderByFolderId(folderId));
             List<File> allFiles = fileMapper.findFilesByFolderIds(
                     subFolders.stream()
                             .map(Folder::getId)
@@ -326,9 +352,7 @@ public class FolderService {
 
             // 只删除已经软删除的文件
             for (File file : allFiles) {
-                if (file.isDeleted()) {
                     fileService.deleteFile(file.getId(), userId);
-                }
             }
 
             // 只删除已经软删除的文件夹

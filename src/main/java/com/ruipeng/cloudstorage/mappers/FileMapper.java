@@ -84,6 +84,8 @@ public interface FileMapper {
             "</choose>",
             "</script>"})
     List<File> findFilesByFolderIds(List<Long> collect, Long folderId);
+
+
     @Select("SELECT * FROM files WHERE folder_id = #{id} AND is_deleted = FALSE")
     @Results({
             @Result(property = "id", column = "id"),
@@ -134,7 +136,12 @@ public interface FileMapper {
             "WHERE id = #{id}")
     int updateFileDeleteStatus(File file);
 
-    @Select("SELECT * FROM files WHERE owner_id = #{ownerId}  AND is_deleted = true")
+    @Select("SELECT f.* " +
+            "FROM files f " +
+            "JOIN folders fo ON f.folder_id = fo.id " +
+            "WHERE f.owner_id = #{ownerId} " +
+            "  AND f.is_deleted = true " +
+            "  AND fo.is_deleted = false")
     @Results({
             @Result(property = "id", column = "id"),
             @Result(property = "name", column = "name"),
@@ -146,6 +153,29 @@ public interface FileMapper {
             @Result(property = "updatedAt", column = "updated_at"),
             @Result(property = "isDeleted", column = "is_deleted")
     })
-    File getDeletedFileByUserId( Long ownerId);
+    List<File> getDeletedFileByUserId( Long ownerId);
+
+    @Select("SELECT * FROM files WHERE owner_id = #{ownerId} AND id=#{fileId} AND is_deleted = false")
+    @Results({
+            @Result(property = "id", column = "id"),
+            @Result(property = "name", column = "name"),
+            @Result(property = "mimeType", column = "mime_type"),
+            @Result(property = "size", column = "size"),
+            @Result(property = "ownerId", column = "owner_id"),
+            @Result(property = "folderId", column = "folder_id"),
+            @Result(property = "createdAt", column = "created_at"),
+            @Result(property = "updatedAt", column = "updated_at"),
+            @Result(property = "isDeleted", column = "is_deleted")
+    })
+    File getFileByUserIdAndFileId(long ownerId, long fileId);
+
+    @Select("SELECT f.* " +
+            "FROM files f " +
+            "JOIN file_permissions per ON f.id = per.file_id "+
+            "WHERE f.id=#{fileId} "  +
+            "AND f.owner_id = #{userId} "+
+            "AND f.is_deleted = false " +
+            "AND per.permission = 'admin'")
+    File findByIdAndUserIdWithAdminPermission(Long fileId, Long userId);
 }
 

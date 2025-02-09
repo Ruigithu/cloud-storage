@@ -178,7 +178,7 @@ function Bin(){
                                 <tr key={file.id} className="file-data">
                                     <td><i className={getFileIcon(file.mimeType)} style={{color: fileIcons[getFileIcon(file.mimeType)]}}></i> {file.name}</td>
                                     <td>{file.updatedAt}</td>
-                                    <td>{formatFileSize(file.size)}</td>
+                                    <td>{file.id}</td>
                                     <td><OperateSpecificDeletedFile file={file} userId={actualUserId}/></td>
                                 </tr>
                             ))}

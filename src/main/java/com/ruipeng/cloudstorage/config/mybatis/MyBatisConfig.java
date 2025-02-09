@@ -19,7 +19,8 @@ public class MyBatisConfig {
         // 注册 TypeHandler
         factoryBean.setTypeHandlers(new TypeHandler[]{
                 new LtreeTypeHandler(),
-                new PermissionTypeHandler()
+                new PermissionTypeHandler(),
+                new UUIDTypeHandler()
         });
 
         return factoryBean.getObject();

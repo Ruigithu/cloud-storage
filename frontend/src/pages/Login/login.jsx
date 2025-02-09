@@ -35,8 +35,14 @@ function Login(){
 
             //get the authentication response
             if (response.ok){
-                const data = await response.json();
-                navigate("/home")
+                const redirectUrl = localStorage.getItem('redirectAfterLogin');
+                if (redirectUrl) {
+                    localStorage.removeItem('redirectAfterLogin');
+                    navigate(redirectUrl);
+                } else {
+                    navigate("/home")
+                }
+
             }
 
         }catch (error){

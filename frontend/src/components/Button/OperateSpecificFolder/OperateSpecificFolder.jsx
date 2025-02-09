@@ -88,26 +88,22 @@ const OperateSpecificFolder = ({ folder, userId }) => {
                     <ul className="menu-list">
                         <li
                             className="rename more"
-                            onClick={() => alert("Rename Selected")}
-                        >
+                            onClick={() => alert("Rename Selected")}>
                             Rename
                         </li>
                         <li
                             className="download more"
-                            onClick={() => handleDownloadFolder(folder.id, userId)}
-                        >
+                            onClick={() => handleDownloadFolder(folder.id, userId)}>
                             Download
                         </li>
                         <li
                             className="delete more"
-                            onClick={() => handleDeleteFolder(folder.id, userId)}
-                        >
+                            onClick={() => handleDeleteFolder(folder.id, userId)}>
                             Delete
                         </li>
                         <li
                             className="share more"
-                            onClick={() => alert("Share Selected")}
-                        >
+                            onClick={() => alert("Share Selected")}>
                             Share
                         </li>
                     </ul>
