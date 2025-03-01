@@ -17,7 +17,7 @@ function UploadFile({ onFileUploadSuccess,ownerId,folderId }) {
             console.log(ownerId);
             formData.append('folderId',folderId);
 
-            const response = await fetch("http://localhost:8080/upload", {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/upload`, {
                 method: 'POST',
                 body: formData,
                 credentials: 'include',

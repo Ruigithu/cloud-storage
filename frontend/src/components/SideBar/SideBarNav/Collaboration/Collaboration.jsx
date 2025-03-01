@@ -11,7 +11,7 @@ function Collaboration(){
     // 获取文件列表
     const fetchFiles = async () => {
         try {
-            const response = await fetch((`http://localhost:8080/getAllFiles?userId=${actualUserId}`),{
+            const response = await fetch((`${process.env.REACT_APP_API_URL}/getAllFiles?userId=${actualUserId}`),{
                 method:'GET',
                 credentials: 'include',
             });

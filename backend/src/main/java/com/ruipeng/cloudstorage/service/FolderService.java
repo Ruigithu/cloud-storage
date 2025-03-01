@@ -30,7 +30,7 @@ public class FolderService {
     private FileMapper fileMapper;
     private FileVersionMapper fileVersionMapper;
 
-    public static final Long ROOT_FOLDER_ID = 1L;
+
 
     @Autowired
     public FolderService(FilePermissionMapper filePermissionMapper, FolderMapper folderMapper, FileMapper fileMapper, FileService fileService, FileVersionMapper fileVersionMapper) {
@@ -43,89 +43,92 @@ public class FolderService {
 
     public FolderService() {
     }
+    public Long getRootFolderId(Long userId) throws SQLException {
+        return initRootFolderForUser(userId);
+    }
 
-    private void initRootFolderIfNotExists(Long userId) throws SQLException {
-        System.out.println("check结果"+folderMapper.existsById(ROOT_FOLDER_ID,userId));
-        // First check if root folder exists using a transaction to prevent race conditions
-        if (!folderMapper.existsById(ROOT_FOLDER_ID,userId)) {
-
+    private long initRootFolderForUser(Long userId) throws SQLException {
+        // Check if root folder exists for this user
+        Folder rootFolder = folderMapper.findRootFolderByUserId(userId);
+        System.out.println(1);
+        if (rootFolder == null) {
             synchronized (this) {  // Double-checked locking pattern
-                if (!folderMapper.existsById(ROOT_FOLDER_ID,userId)) {
-                    // Create root folder first
-                    Folder rootFolder = new Folder();
-                    rootFolder.setId(ROOT_FOLDER_ID);
-                    rootFolder.setOwnerId(userId);
-                    rootFolder.setName("Root");
-                    rootFolder.setParentId(null);
+                rootFolder = folderMapper.findRootFolderByUserId(userId);
+                if (rootFolder == null) {
+                    // Create root folder for this user
+                    Folder newRootFolder = new Folder();
+                    // Let the database generate the ID
+                    newRootFolder.setOwnerId(userId);
+                    newRootFolder.setName("Root");
+                    newRootFolder.setParentId(null); // Root has no parent
 
-                    // Set up the ltree path
+                    // Set up the ltree path - will be updated after insert
                     PGobject ltreePath = new PGobject();
                     ltreePath.setType("ltree");
-                    ltreePath.setValue(String.valueOf(0L));
-                    rootFolder.setPath(ltreePath);
+                    ltreePath.setValue("temp"); // Temporary value
+                    newRootFolder.setPath(ltreePath);
 
-                    rootFolder.setCreatedAt(Instant.now());
-                    rootFolder.setUpdatedAt(Instant.now());
-                    rootFolder.setDeleted(false);
+                    newRootFolder.setCreatedAt(Instant.now());
+                    newRootFolder.setUpdatedAt(Instant.now());
+                    newRootFolder.setDeleted(false);
 
-                    // Insert the folder first
-                    int insertResult = folderMapper.insert(rootFolder);
-                    System.out.println("成功创建根目录");
-
-                    // Only create permission if folder was successfully created
-                    if (insertResult > 0) {
-                        try {
-                            // Create permission record AFTER folder exists
-                            FilePermission permission = new FilePermission();
-                            permission.setFolderId(ROOT_FOLDER_ID);
-                            permission.setUserId(userId);
-                            permission.setPermission(PermissionType.ADMIN);
-                            permission.setCreatedAt(Instant.now());
-                            permission.setCreatedBy(userId);
-                            filePermissionMapper.insert(permission);
-                        } catch (Exception e) {
-                            // If permission creation fails, we should clean up the folder
-                            folderMapper.deleteFolder(ROOT_FOLDER_ID);
-                            throw new SQLException("Failed to create root folder permissions: " + e.getMessage());
-                        }
-                    } else {
-                        throw new SQLException("Failed to create root folder");
+                    int rows = folderMapper.insert(newRootFolder);
+                    System.out.println(2);
+                    if (rows <= 0) {
+                        throw new SQLException("Failed to insert folder");
                     }
+                    System.out.println(3);
+                    Folder insertedFolder =folderMapper.findRootFolderByUserId(userId);
+                    System.out.println("文件夹id是：" + insertedFolder.getId());
+
+                    // Update path with the actual ID
+                    ltreePath.setValue(insertedFolder.getId().toString());
+                    folderMapper.updatePath(insertedFolder.getId(), ltreePath, Instant.now());
+                    rootFolder=insertedFolder;
+                    System.out.println("rootfolder"+rootFolder.getId());
+                    // Create permission record
+                    FilePermission permission = new FilePermission();
+                    permission.setFolderId(insertedFolder.getId());
+                    permission.setUserId(userId);
+                    permission.setPermission(PermissionType.ADMIN);
+                    permission.setCreatedAt(Instant.now());
+                    permission.setCreatedBy(userId);
+                    filePermissionMapper.insert(permission);
                 }
             }
         }
-        // 这里的查询似乎没有使用返回值，可以考虑移除
-        // folderMapper.findById(ROOT_FOLDER_ID);
+
+        return rootFolder.getId();
     }
 
-    public Folder createFolder(String name, Long parentId, Long userId) throws NotFoundException, SQLException {
+    public Folder createFolder(String name, Long parentId, Long userId) throws NotFoundException, SQLException, AccessDeniedException {
         System.out.println();
         System.out.println("====================创建文件夹=======================");
-        // 确保根目录存在
-        if (parentId == 1L || ROOT_FOLDER_ID.equals(parentId)) {
-            System.out.println("这里创建根目录了吗");
-            initRootFolderIfNotExists(userId);
-            parentId = ROOT_FOLDER_ID;
-        }
-        System.out.println("执行到1");
 
+        // 判断是否为用户的根文件夹
+        if (parentId == null) {
+            Long rootId = initRootFolderForUser(userId);
+            parentId = rootId;
+        }
+
+        // 获取parent文件夹
         Folder parentFolder = folderMapper.findById(parentId);
         if (parentFolder == null) {
             throw new NotFoundException("Parent folder not found");
         }
         System.out.println("执行到2");
-        // 验证权限
-        if (!ROOT_FOLDER_ID.equals(parentId)) {
+
+        // 验证权限 - 检查是否为根文件夹
+        Folder rootFolder = folderMapper.findRootFolderByUserId(userId);
+        // 如果不是用户的根文件夹，则需要检查权限
+        if (rootFolder != null && !rootFolder.getId().equals(parentId)) {
             FilePermission permission = filePermissionMapper.findByFolderIdAndUserId(parentId, userId);
-            System.out.println("permission是："+permission);
+            System.out.println("permission是：" + permission);
             if (permission == null || permission.getPermission() == PermissionType.READ) {
-                System.out.println("no permission");
+                throw new AccessDeniedException("No permission to create folder in this location");
             }
         }
         System.out.println("执行到3");
-        PGobject ltreePath = new PGobject();
-        ltreePath.setType("ltree");
-        ltreePath.setValue("undefined.path");
 
         // 创建新文件夹
         Folder folder = new Folder();
@@ -134,55 +137,70 @@ public class FolderService {
         folder.setOwnerId(userId);
         folder.setCreatedAt(Instant.now());
         folder.setUpdatedAt(Instant.now());
-
-        // 临时将 path 设为 null 或其他占位符，后续会更新
-        folder.setPath(ltreePath);  // 或者使用空字符串或其他占位符
-
-
-
         folder.setDeleted(false);
-        long folderId = folderMapper.insert(folder);
-        System.out.println("文件夹id是："+folderId);
 
+        // 临时设置路径，插入后更新
+        PGobject tempPath = new PGobject();
+        tempPath.setType("ltree");
+        tempPath.setValue("temp");
+        folder.setPath(tempPath);
+
+        // 插入文件夹获取ID
+        int rows = folderMapper.insert(folder);
+        if (rows <= 0) {
+            throw new SQLException("Failed to insert folder");
+        }
+        long folderId = folder.getId(); // 自动填充的ID
+        System.out.println("文件夹id是：" + folderId);
         System.out.println("执行到4");
-        // 设置初始路径为PGobject
-        String pathValue;
-        if (ROOT_FOLDER_ID.equals(parentId)) {
-            pathValue = folder.getId().toString();
-        } else {
-            pathValue = parentFolder.getPath() + "." + folderId;
+
+        // 构建正确的路径
+        try {
+            PGobject ltreePath = new PGobject();
+            ltreePath.setType("ltree");
+
+            // 如果是根文件夹，路径就是自己的ID
+            // 否则，路径是父文件夹路径.自己的ID
+            String parentPathValue = parentFolder.getPath().getValue();
+            String newPathValue;
+            if (rootFolder != null && rootFolder.getId().equals(parentId)) {
+                // 如果父文件夹是根文件夹，路径直接是ID
+                newPathValue = String.valueOf(folderId);
+            } else {
+                // 否则拼接父路径
+                newPathValue = parentPathValue + "." + folderId;
+            }
+
+            ltreePath.setValue(newPathValue);
+
+            // 更新文件夹路径
+            folderMapper.updatePath(folderId, ltreePath, Instant.now());
+
+            // 更新返回对象的路径
+            folder.setPath(ltreePath);
+        } catch (SQLException e) {
+            throw e; // 直接抛出，因为方法签名已声明
         }
         System.out.println("执行到5");
 
-        try {
-            ltreePath.setValue(pathValue);
-            folder.setPath(ltreePath);  // 假设Folder类的path字段已经改为PGobject类型
-        } catch (SQLException e) {
-            throw new RuntimeException("Error setting ltree path value", e);
-        }
-        // 更新文件夹路径
-        ltreePath.setValue(pathValue);  // 设置新的路径值
-
-        // 插入文件夹记录
-        folderMapper.updatePath(folder.getId(),ltreePath,Instant.now());
-        System.out.println("执行到6");
         // 创建权限
         FilePermission permission = new FilePermission();
-        permission.setFolderId(folder.getId());
+        permission.setFolderId(folderId);
         permission.setUserId(userId);
         permission.setPermission(PermissionType.ADMIN);
         permission.setCreatedAt(Instant.now());
         permission.setCreatedBy(userId);
         System.out.println(
-                "folderId:"+permission.getFolderId()+
-                "userId:"+permission.getUserId()+
-                "permission:"+permission.getPermission()+
-                        "createdAt:"+permission.getCreatedAt()+
-                        "createdBy:"+permission.getCreatedBy()
+                "folderId:" + permission.getFolderId() +
+                        " userId:" + permission.getUserId() +
+                        " permission:" + permission.getPermission() +
+                        " createdAt:" + permission.getCreatedAt() +
+                        " createdBy:" + permission.getCreatedBy()
         );
 
-            filePermissionMapper.insert(permission);
+        filePermissionMapper.insert(permission);
 
+        System.out.println("执行到6");
         System.out.println();
         System.out.println("======================创建文件夹完成========================");
 
@@ -190,11 +208,10 @@ public class FolderService {
     }
 
     public List<Folder> getFolders(long userId, long parentId) throws SQLException {
-        if (parentId == 1L || ROOT_FOLDER_ID.equals(parentId)) {
-            initRootFolderIfNotExists(userId);
-            parentId = ROOT_FOLDER_ID;
+        if (parentId == 0) { // 使用0或其他特殊值作为"获取根文件夹"的标识
+            parentId = initRootFolderForUser(userId);
         }
-        return folderMapper.getFoldersByUserIdAndFolderId(userId,parentId);
+        return folderMapper.getFoldersByUserIdAndFolderId(userId, parentId);
     }
     //软删除
 // 软删除文件夹
@@ -207,10 +224,7 @@ public class FolderService {
             throw new RuntimeException("文件夹不存在");
         }
 
-        // 2. 检查是否为根目录
-        if (ROOT_FOLDER_ID.equals(folderId)) {
-            throw new RuntimeException("不能删除根目录");
-        }
+
 
         // 3. 检查权限
         List<FilePermission> permission = filePermissionMapper.findListByFolderIdAndUserId(folderId, userId);
@@ -326,9 +340,6 @@ public class FolderService {
             throw new RuntimeException("文件夹不存在");
         }
 
-        if (ROOT_FOLDER_ID.equals(folderId)) {
-            throw new RuntimeException("不能删除根目录");
-        }
 
         List<FilePermission> permission = filePermissionMapper.findListByFolderIdAndUserId(folderId, userId);
         if (permission != null) {
@@ -458,19 +469,32 @@ public class FolderService {
 
 
     public void uploadFolder(MultipartFile[] files, String[] relativePaths, Long userId, Long parentFolderId) throws IOException, SQLException, NotFoundException {
-        if (parentFolderId == 1L || ROOT_FOLDER_ID.equals(parentFolderId)) {
-            initRootFolderIfNotExists(userId);
-            parentFolderId = ROOT_FOLDER_ID;
-        }
         System.out.println("====================上传整个文件夹========================");
 
-        // 1. 验证父文件夹权限
-        if (parentFolderId != ROOT_FOLDER_ID) {
+        // 检查父文件夹ID，如果为null或是根目录ID，则确保用户有根目录
+        if (parentFolderId == null) {
+            Long rootId = initRootFolderForUser(userId);
+            parentFolderId = rootId;
+        }
+
+        // 获取parent文件夹
+        Folder parentFolder = folderMapper.findById(parentFolderId);
+        if (parentFolder == null) {
+            throw new NotFoundException("Parent folder not found");
+        }
+
+
+        // 验证权限 - 检查是否为根文件夹
+        Folder rootFolder = folderMapper.findRootFolderByUserId(userId);
+        // 如果不是用户的根文件夹，则需要检查权限
+        if (rootFolder != null && !rootFolder.getId().equals(parentFolderId)) {
             FilePermission permission = filePermissionMapper.findByFolderIdAndUserId(parentFolderId, userId);
+            System.out.println("permission是：" + permission);
             if (permission == null || permission.getPermission() == PermissionType.READ) {
-                throw new RuntimeException("没有权限上传到此文件夹");
+                throw new AccessDeniedException("No permission to create folder in this location");
             }
         }
+
         for(MultipartFile file : files) {
             System.out.println("需要上传的 " + files.length+" 个 文件名字分别是 "+file.getOriginalFilename());
             System.out.println("=================================================");
@@ -521,7 +545,7 @@ public class FolderService {
         return folderPath;
     }
     private void createFolderStructure(String folderPath, Map<String, Long> pathToFolderIdMap, Long userId, Long parentFolderId)
-            throws SQLException, NotFoundException {
+            throws SQLException, NotFoundException, AccessDeniedException {
 
         String[] folders = folderPath.split("/");
         for (String folder : folders) {
@@ -551,10 +575,9 @@ public class FolderService {
         }
     }
 
-    public List<Folder> getAllDeletedFolders(long userId, long parentId) throws SQLException {
-        if (parentId == 1L || ROOT_FOLDER_ID.equals(parentId)) {
-            initRootFolderIfNotExists(userId);
-            parentId = ROOT_FOLDER_ID;
+    public List<Folder> getAllDeletedFolders(Long userId, Long parentId) throws SQLException {
+        if (parentId == null) {
+            parentId = initRootFolderForUser(userId);
         }
         return folderMapper.getDeletedFoldersByUserIdAndFolderId(userId,parentId);
     }

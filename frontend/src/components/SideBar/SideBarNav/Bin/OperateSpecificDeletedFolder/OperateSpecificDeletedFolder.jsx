@@ -31,7 +31,7 @@ const OperateSpecificDeletedFolder = ({ folder, userId }) => {
 
     const handleDeleteFolder = async (folderId, userId) => {
         try {
-            const response = await fetch(`http://localhost:8080/deleteFolder?folderId=${folderId}&userId=${userId}`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/deleteFolder?folderId=${folderId}&userId=${userId}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"
@@ -51,7 +51,7 @@ const OperateSpecificDeletedFolder = ({ folder, userId }) => {
 
     async function handleRestoreFolder(id, userId) {
         try {
-            const response = await fetch(`http://localhost:8080/restoreFolder?folderId=${id}&ownerId=${userId}`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/restoreFolder?folderId=${id}&ownerId=${userId}`, {
                 method: "Post",
                 headers: {
                     "Content-Type": "application/json"

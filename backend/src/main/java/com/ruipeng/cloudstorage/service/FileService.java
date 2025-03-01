@@ -179,6 +179,115 @@ public class FileService {
 
         return newFile;
     }
+    public File uploadNewVersion(MultipartFile file, Long ownerId, Long fileId) throws IOException {
+        System.out.println("==============上传文件新版本===============");
+
+        // 1. 首先验证文件是否存在
+        File existingFile = fileMapper.getFileById(fileId);
+        if (existingFile == null) {
+            throw new RuntimeException("文件不存在");
+        }
+
+        // 2. 验证用户权限
+        FilePermission permission = filePermissionMapper.findByFileIdAndUserId(fileId, ownerId);
+        if (permission == null || !(permission.getPermission() == PermissionType.ADMIN)) {
+            throw new RuntimeException("用户没有编辑此文件的权限");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        Long folderId = existingFile.getFolderId();
+
+        String subPath = "";
+        String fileName = originalFilename;
+
+        // 如果originalFilename包含路径分隔符，则需要正确处理
+        if (originalFilename != null && (originalFilename.contains("/") || originalFilename.contains("\\"))) {
+            Path fullPath = Paths.get(originalFilename);
+            // 只获取最后一级的文件名
+            fileName = fullPath.getFileName().toString();
+            // 获取除了文件名外的路径部分
+            if (fullPath.getParent() != null) {
+                subPath = fullPath.getParent().toString();
+            }
+        }
+
+        // 获取文件名和扩展名
+        String fileExtension = "";
+        String nameWithoutExtension = fileName;
+
+        // 分离文件名和扩展名
+        int lastDotIndex = fileName.lastIndexOf(".");
+        if (lastDotIndex > 0) {
+            nameWithoutExtension = fileName.substring(0, lastDotIndex);
+            fileExtension = fileName.substring(lastDotIndex);
+        }
+
+        // 3. 更新现有文件记录
+        try {
+            existingFile.setMimeType(file.getContentType());
+            existingFile.setSize(file.getSize());
+            System.out.println("开始更新文件记录，fileId是：" + existingFile.getId());
+            System.out.println("更新的MIME类型：" + file.getContentType() + "，文件大小：" + file.getSize());
+            int result = fileMapper.updateFile(existingFile);
+            System.out.println("更新结果：" + result);
+        } catch (Exception e) {
+            System.err.println("更新文件记录失败，详细错误：");
+            e.printStackTrace();
+        }
+
+        // 4. 计算新版本号
+        int versionNumber = fileVersionMapper.getLatestVersionNumber(fileId) + 1;
+
+        // 构建新的文件名（包含版本号）与uploadFile方法保持一致的格式
+        String newFileName = String.format("%s_v%d%s", nameWithoutExtension, versionNumber, fileExtension);
+
+        // 构建目录路径时确保不会重复，与uploadFile方法保持一致
+        Path directoryPath;
+        if (subPath.isEmpty()) {
+            directoryPath = Paths.get(baseStoragePath, ownerId.toString(), Long.toString(folderId));
+        } else {
+            directoryPath = Paths.get(baseStoragePath, ownerId.toString(), Long.toString(folderId), subPath);
+        }
+
+        System.out.println("directoryPath:" + directoryPath);
+        Path filePath = directoryPath.resolve(newFileName);
+
+        // 确保所有父目录都被创建
+        try {
+            System.out.println("创建目录: " + directoryPath);
+            Files.createDirectories(directoryPath);
+            System.out.println("目录是否存在: " + Files.exists(directoryPath));
+        } catch (IOException e) {
+            throw new IOException("Failed to create directories: " + directoryPath, e);
+        }
+
+        // 存储文件
+        try {
+            System.out.println("正在存储新版本文件: " + filePath);
+            file.transferTo(filePath.toFile());
+            System.out.println("文件存储成功: " + filePath);
+        } catch (IOException e) {
+            System.err.println("Failed to store file: " + e.getMessage());
+            throw new IOException("Failed to store file at: " + filePath, e);
+        }
+
+        // 5. 在 file_versions 表中记录新版本的文件存储路径
+        FileVersion version = new FileVersion();
+        version.setFileId(fileId);
+        version.setVersionNumber(versionNumber);
+        version.setStoragePath(filePath.toString());
+        version.setSize(file.getSize());
+        version.setCreatedBy(ownerId);
+        fileVersionMapper.insertVersion(version);
+
+        System.out.println("新版本号：" + versionNumber);
+        System.out.println("文件存储路径：" + filePath.toString());
+
+        System.out.println();
+        System.out.println("==============上传文件新版本完成=================");
+
+        return existingFile;
+    }
 
     public List<File> getFiles(long ownerId,long folderId){
         return fileMapper.getFilesByUserIdAndFolderId(ownerId,folderId);
@@ -223,10 +332,6 @@ public class FileService {
             throw new RuntimeException("文件不存在");
         }
 
-//        FilePermission permission = filePermissionMapper.getPermission(fileId, userId);
-//        if (permission == null || !permission.getPermission().equals(PermissionType.ADMIN)) {
-//            throw new RuntimeException("没有权限恢复此文件");
-//        }
 
         FilePermission permission = filePermissionMapper.getPermission(fileId, userId);
         if (permission != null) {
@@ -358,7 +463,7 @@ public class FileService {
 
         try {
             // 1. 验证文件权限
-            FileVersion version = fileVersionMapper.getVersionByFileId(fileId);
+            FileVersion version = fileVersionMapper.getLatestVersion(fileId);
             if (version == null) {
                 return ResponseEntity.notFound().build();
             }

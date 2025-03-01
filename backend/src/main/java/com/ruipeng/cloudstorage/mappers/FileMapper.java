@@ -101,13 +101,9 @@ public interface FileMapper {
 
     @Update("UPDATE files " +
             "SET " +
-            "    name = #{name}, " +
-            "    folder_id = #{folderId}, " +
-            "    owner_id = #{ownerId}, " +
             "    mime_type = #{mimeType}, " +
             "    size = #{size}, " +
             "    updated_at = #{updatedAt}, " +
-            "    is_deleted = #{isDeleted} " +
             "WHERE id = #{id}")
     int updateFile(File file);
 

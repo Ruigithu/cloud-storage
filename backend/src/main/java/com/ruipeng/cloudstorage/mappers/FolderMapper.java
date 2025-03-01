@@ -16,6 +16,11 @@ public interface FolderMapper {
             "#{path,typeHandler=com.ruipeng.cloudstorage.config.mybatis.LtreeTypeHandler}, " +
             "#{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP}, #{isDeleted})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(Folder folder);
+
+    @Select(" SELECT * FROM folders" +
+            " WHERE owner_id = #{userId} AND parent_id IS NULL AND is_deleted = false" +
+            " LIMIT 1")
     @Results({
             @Result(property = "id", column = "id"),
             @Result(property = "parentId", column = "parent_id"),
@@ -24,7 +29,7 @@ public interface FolderMapper {
             @Result(property = "updatedAt", column = "updated_at"),
             @Result(property = "isDeleted", column = "is_deleted")
     })
-    int insert(Folder folder);
+    Folder findRootFolderByUserId(Long userId);
 
     @Select("SELECT * FROM folders WHERE id = #{id} AND is_deleted = false")
     Folder findById(@Param("id") Long id);
@@ -45,9 +50,6 @@ public interface FolderMapper {
             "updated_at = #{updatedAt} WHERE id = #{id}")
     void updatePath(@Param("id") Long id, @Param("path") PGobject path, @Param("updatedAt") Instant updatedAt);
 
-
-    @Select("SELECT EXISTS(SELECT 1 FROM folders WHERE id = #{id} AND owner_id=#{userId})")
-    boolean existsById(@Param("id") Long id, Long userId);
 
     @Select("SELECT * FROM folders WHERE owner_id = #{ownerId} AND parent_id=#{parentId} AND is_deleted = FALSE")
     @Results({

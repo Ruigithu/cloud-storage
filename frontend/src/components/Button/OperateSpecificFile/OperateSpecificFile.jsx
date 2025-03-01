@@ -34,7 +34,7 @@ const OperateSpecificFile = ({file,userId}) => {
         const downloadUrl = `/download?fileId=${file.id}`;
         const fetchFiles = async () => {
             try {
-                const response = await fetch(`http://localhost:8080${downloadUrl}`, {
+                const response = await fetch(`${process.env.REACT_APP_API_URL}${downloadUrl}`, {
                     method: 'GET',
                     credentials: 'include', // 如果需要带上 cookie
                 });
@@ -75,7 +75,7 @@ const OperateSpecificFile = ({file,userId}) => {
 
     async function handleDeleteFile(fileId, userId) {
         try {
-            const response = await fetch(`http://localhost:8080/softDeleteFile?fileId=${fileId}&userId=${userId}`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/softDeleteFile?fileId=${fileId}&userId=${userId}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"
@@ -103,10 +103,6 @@ const OperateSpecificFile = ({file,userId}) => {
             {isMenuVisible && (
                 <div ref={menuRef} className="menu-container">
                     <ul className="menu-list">
-                        <li className="rename more"
-                            onClick={() => alert("Rename Selected")}>
-                            Rename
-                        </li>
                         <li className="download more" onClick={() => handleDownload(file)}>
                             Download
                         </li>

@@ -11,7 +11,7 @@ function CreateFolder({parentId,userId,onFileUploadSuccess}){
         formData.append('parentId',parentId);
         formData.append('userId',userId);
 
-        const response = await fetch("http://localhost:8080/createFolder", {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/createFolder`, {
             method: 'POST',
             body: formData,
             credentials: 'include',

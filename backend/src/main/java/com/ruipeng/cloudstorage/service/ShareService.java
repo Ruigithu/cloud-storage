@@ -9,6 +9,7 @@ import jakarta.transaction.Transactional;
 import org.apache.ibatis.javassist.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -109,30 +110,35 @@ public class ShareService {
         } catch (Exception e) {
             System.out.println("数据库查询发生异常：");
             e.printStackTrace();  // 打印完整堆栈信息
+            throw new RuntimeException("Failed to find share");
         }
+
         System.out.println("执行到2");
-        System.out.println(share);
-        System.out.println(share.getAccessType()+" "+share.getExpiresAt());
         if (share == null) {
-            throw new RuntimeException("Share not found or expired");
+            throw new RuntimeException("Share not found");
         }
+
         System.out.println("执行到3");
         File file = fileMapper.getFileById(share.getFileId());
         if (file == null) {
             throw new RuntimeException("File not found");
         }
+
         System.out.println("执行到4");
         ShareInfoResponse response = new ShareInfoResponse();
-        response.setType(share.getAccessType().name());
-        response.setRequiresAuth(PermissionType.WRITE.equals(share.getAccessType()) && userId == null);
+
+        // 修改这里的逻辑，保持与前端一致
+        // 前端期望根据 type 值来决定是下载还是保存共享文件
+        response.setType(share.getAccessType()); // 直接使用分享时设置的权限类型
         response.setFileName(file.getName());
         response.setFilePath(fileVersionMapper.getVersionByFileId(file.getId()).getStoragePath());
         response.setFileId(file.getId());
+
         System.out.println("执行到5");
         return response;
     }
 
-    public Long saveSharedFile(UUID shareId, Long userId) {
+    public Long saveSharedFile(UUID shareId, Long userId, Long rootFolderId) {
         // 1. 验证分享和权限
         Share share = shareMapper.findById(shareId);
         System.out.println("执行到1");
@@ -166,33 +172,25 @@ public class ShareService {
                     Files.readAllBytes(originalFilePath)  // 文件内容
             );
 
-            // 4. 获取或创建用户的根目录ID
-            Long userRootFolderId = folderMapper.getUserRootFolderId(userId);
-            if (userRootFolderId == null) {
-                Folder folder = folderService.createFolder("temp", 1L, userId);
-//                folderService.softDeleteFolder(folder.getId(),userId);
-//                folderService.deleteFolder(folder.getId(),userId);
-                System.out.println("创建好根目录啦");
-            }
-            System.out.println(userId+","+userRootFolderId);
-            System.out.println("执行到6");
-
 
             // 5. 使用现有的uploadFile方法保存文件
 
-            File newFile = fileService.uploadFile(multipartFile, userId, userRootFolderId);
+            File newFile = fileService.uploadFile(multipartFile, userId, rootFolderId);
             System.out.println("执行到7");
             return newFile.getId();
 
         } catch (IOException e) {
             throw new RuntimeException("Failed to copy shared file: " + e.getMessage());
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } catch (NotFoundException e) {
-            throw new RuntimeException(e);
         }
     }
 
 
+    public int cancelShare(UUID shareId, Long userId) {
+       return shareMapper.cancelShare(shareId,userId);
+    }
+
+    public int restore(UUID shareId, Long userId) {
+        return shareMapper.restore(shareId,userId);
+    }
 }
 

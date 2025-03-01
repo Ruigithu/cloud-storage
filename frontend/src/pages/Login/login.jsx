@@ -21,27 +21,19 @@ function Login(){
         formData.append('password', password.trim());
 
         try {
-            const response = await fetch('http://localhost:8080/login', {
-//post method will not concat sensitive data in the url
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/login`, {
                 method: 'POST',
                 headers: {
-                    // Spring Security received "x-www-form-urlencoded" format by default
                     'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json'  // 明确指定需要JSON响应
                 },
-//transform it to the format of "username=Alice&password=12345"
                 body: formData.toString(),
-                credentials: 'include' // include cookies//这里有必要吗
+                credentials: 'include'  // 保留这个设置，它确实必要
             });
 
             //get the authentication response
             if (response.ok){
-                const redirectUrl = localStorage.getItem('redirectAfterLogin');
-                if (redirectUrl) {
-                    localStorage.removeItem('redirectAfterLogin');
-                    navigate(redirectUrl);
-                } else {
-                    navigate("/home")
-                }
+                    navigate("/home");
 
             }
 

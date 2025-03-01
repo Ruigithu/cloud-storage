@@ -49,7 +49,7 @@ function ShareFileDialog({ fileId }) {
             formData.append('accessType', accessType);
             formData.append('expiresAt', expiresAt ? expiresAt.toISOString() : '');
 
-            const response = await fetch('http://localhost:8080/createShareLink', {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/createShareLink`, {
                 method: 'POST',
                 body: formData,
                 credentials:'include'

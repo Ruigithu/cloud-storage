@@ -39,7 +39,7 @@ const OperateSpecificDeletedFile = ({file,userId}) => {
 
     async function handleDeleteFile(fileId, userId) {
         try {
-            const response = await fetch(`http://localhost:8080/deleteFile?fileId=${fileId}&userId=${userId}`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/deleteFile?fileId=${fileId}&userId=${userId}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"
@@ -59,7 +59,7 @@ const OperateSpecificDeletedFile = ({file,userId}) => {
 
     async function handleRestoreFile(id, userId) {
         try {
-            const response = await fetch(`http://localhost:8080/restoreFile?fileId=${id}&ownerId=${userId}`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/restoreFile?fileId=${id}&ownerId=${userId}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

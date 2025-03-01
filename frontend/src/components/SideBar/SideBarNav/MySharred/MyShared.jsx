@@ -12,7 +12,7 @@ function MyShared(){
     const fetchSharedFiles = async () => {
         try {
             const response = await fetch(
-                `http://localhost:8080/getAllSharedFiles?ownerId=${actualUserId}`,
+                `${process.env.REACT_APP_API_URL}/getAllSharedFiles?ownerId=${actualUserId}`,
                 {
                     method: 'GET',
                     headers: { "Content-Type": "application/json" },
@@ -22,6 +22,7 @@ function MyShared(){
 
             if (response.ok) {
                 const fileData = await response.json();
+
                 setShares(fileData);
             }
         } catch (error) {
@@ -35,8 +36,6 @@ function MyShared(){
         }
     }, [actualUserId]);
 
-    // 移除未使用的 onFileUploadSuccess 函数，除非你在其他地方需要它
-    // 移除未使用的 getFileIcon 和 fileIcons，除非你在其他地方需要它们
 
     return (
         <div className="container">
@@ -59,20 +58,28 @@ function MyShared(){
                         <table className="file-table">
                             <thead>
                             <tr className="file-header">
-                                <th>Name    <i className="fa-solid fa-sort"></i></th>
-                                <th>Expires At   <i className="fa-solid fa-sort"></i></th>
-                                <th>Size</th>
-                                <th> </th>
+                                <th>FileName <i className="fa-solid fa-sort"></i></th>
+                                <th>ShareLink <i className="fa-solid fa-sort"></i></th>
+                                <th>Expires At <i className="fa-solid fa-sort"></i></th>
+                                <th>Authorization</th>
+                                <th></th>
                             </tr>
                             </thead>
                             <tbody>
                             {shares && shares.map(share => (
                                 <tr key={share.id} className="share-data">
-                                    <td>{share.id}</td>
-                                    <td>{share.expiresAt}</td>
-                                    <td>{share.accessType}</td>
+                                    <td>{share.fileName}</td>
+                                    <td>{share.shareLink}</td>
                                     <td>
-                                        <OperateSpecificSharedFile userId={actualUserId}/>
+                                        {share.active ?
+                                            share.expiresAt :
+                                            <span style={{ color: 'red' }}>canceled</span>
+                                        }
+                                    </td>
+                                    <td>{share.type}</td>
+
+                                    <td>
+                                        <OperateSpecificSharedFile shareId ={share.id} userId={actualUserId} active={share.active} refresh={fetchSharedFiles}/>
                                     </td>
                                 </tr>
                             ))}

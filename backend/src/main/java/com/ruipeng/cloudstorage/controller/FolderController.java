@@ -17,8 +17,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.nio.file.AccessDeniedException;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class FolderController {
@@ -29,9 +32,20 @@ public class FolderController {
     public FolderController(FolderService folderService) {
         this.folderService = folderService;
     }
+    @GetMapping("/getRootFolders")
+    public Map<String, Object> getRootFolders(@RequestParam Long userId) throws SQLException {
+        Long rootFolderId = folderService.getRootFolderId(userId);
+        List<Folder> folders = folderService.getFolders(userId, rootFolderId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("rootFolderId", rootFolderId);
+        response.put("folders", folders);
+
+        return response;
+    }
 
     @PostMapping("/createFolder")
-    public ResponseEntity<Folder> createFolder(@RequestParam("name")String name,@RequestParam("parentId")Long parentId,@RequestParam("userId") Long userId) throws SQLException, NotFoundException {
+    public ResponseEntity<Folder> createFolder(@RequestParam("name")String name,@RequestParam("parentId")Long parentId,@RequestParam("userId") Long userId) throws SQLException, NotFoundException, AccessDeniedException {
         System.out.println("开始创建新文件夹");
         System.out.println("文件夹名字:"+name+" parentId:"+parentId+" userId:"+userId);
         Folder folder = folderService.createFolder(name, parentId, userId);
@@ -39,18 +53,24 @@ public class FolderController {
     }
 
     @GetMapping("/getAllFolders")
-    public ResponseEntity<List<Folder>> getAllFolders(@RequestParam long parentId, @RequestParam long userId) throws SQLException {
-        System.out.println("请求所有folders");
-        System.out.println("userId是："+userId);
-        System.out.println("parentId是："+parentId);
-
-        List<Folder> folders = folderService.getFolders(userId,parentId);
-        if (folders!=null){
-            for (Folder folder:folders){
-                System.out.println("文件夹名字是："+folder.getName());
+    public ResponseEntity<?> getAllFolders(
+            @RequestParam(required = false) Long parentId,
+            @RequestParam Long userId) {
+        try {
+            // 如果parentId为null，获取用户的根文件夹
+            if (parentId == null) {
+                Long rootId = folderService.getRootFolderId(userId);
+                Map<String, Object> response = new HashMap<>();
+                response.put("rootFolderId", rootId);
+                response.put("folders", folderService.getFolders(userId, rootId));
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.ok(folderService.getFolders(userId, parentId));
             }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error getting folders: " + e.getMessage());
         }
-        return ResponseEntity.ok().body(folders);
     }
 
     @DeleteMapping  ("/deleteFolder")
@@ -79,6 +99,7 @@ public class FolderController {
     @GetMapping("/getAllDeletedFolders")
     public ResponseEntity<List<Folder>> getAllDeletedFolders(@RequestParam long parentId, @RequestParam long userId) throws SQLException {
 
+        System.out.println(parentId+" aaaaa "+userId);
         List<Folder> folders = folderService.getAllDeletedFolders(userId,parentId);
         if (folders!=null){
             for (Folder folder:folders){

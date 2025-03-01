@@ -31,7 +31,7 @@ const OperateSpecificFolder = ({ folder, userId }) => {
 
     const handleDeleteFolder = async (folderId, userId) => {
         try {
-            const response = await fetch(`http://localhost:8080/softDeleteFolder?folderId=${folderId}&userId=${userId}`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/softDeleteFolder?folderId=${folderId}&userId=${userId}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"
@@ -49,7 +49,7 @@ const OperateSpecificFolder = ({ folder, userId }) => {
 
     const handleDownloadFolder = async (folderId, userId) => {
         try {
-            const response = await fetch(`http://localhost:8080/downloadFolder?folderId=${folderId}&userId=${userId}`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/downloadFolder?folderId=${folderId}&userId=${userId}`, {
                 method: 'GET',
                 credentials: 'include',
             });
@@ -86,11 +86,6 @@ const OperateSpecificFolder = ({ folder, userId }) => {
             {isMenuVisible && (
                 <div ref={menuRef} className="menu-container">
                     <ul className="menu-list">
-                        <li
-                            className="rename more"
-                            onClick={() => alert("Rename Selected")}>
-                            Rename
-                        </li>
                         <li
                             className="download more"
                             onClick={() => handleDownloadFolder(folder.id, userId)}>

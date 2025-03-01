@@ -58,4 +58,7 @@ public interface FileVersionMapper {
             @Result(property = "createdBy", column = "created_by")
     })
     FileVersion getLatestVersion(@Param("fileId") Long fileId);
+
+    @Select("SELECT COALESCE(MAX(version_number), 0) FROM file_versions WHERE file_id = #{fileId}")
+    int getLatestVersionNumber(Long fileId);
 }

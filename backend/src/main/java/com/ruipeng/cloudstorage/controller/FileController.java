@@ -5,6 +5,7 @@ import com.ruipeng.cloudstorage.config.file.FileStorageConfig;
 import com.ruipeng.cloudstorage.entity.*;
 import com.ruipeng.cloudstorage.mappers.FileVersionMapper;
 import com.ruipeng.cloudstorage.service.FileService;
+import com.ruipeng.cloudstorage.service.FolderService;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
@@ -25,6 +26,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -39,19 +41,51 @@ public class FileController {
     private FileService fileService;
     private File file;
     private FileStorageConfig storage;
+    private FolderService folderService;
 
 
 
 
 
-    public FileController(FileService fileService, File file , FileStorageConfig storage, FilePermission filePermission, User user, FileVersionMapper fileVersionMapper) {
+    public FileController(FileService fileService, File file , FileStorageConfig storage, FilePermission filePermission, User user, FileVersionMapper fileVersionMapper, FolderService folderService) {
         this.fileService = fileService;
         this.file = file;
         this.storage = storage;
         this.filePermission = filePermission;
         this.user = user;
         this.fileVersionMapper = fileVersionMapper;
+        this.folderService = folderService;
     }
+    @GetMapping("/getRootFiles")
+    public List<File> getRootFiles(@RequestParam Long ownerId) throws SQLException {
+        Long rootFolderId = folderService.getRootFolderId(ownerId);
+        return fileService.getFiles( ownerId,rootFolderId);
+    }
+
+    @PostMapping("/uploadNewFile")
+    public ResponseEntity<?> uploadNewFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("ownerId") Long ownerId,
+            @RequestParam("folderId") Long folderId) {
+
+        try {
+            // 检查文件是否为空
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body("Please select a file to upload");
+            }
+
+            // 调用服务层处理文件上传逻辑
+            File newVersion = fileService.uploadNewVersion(file, ownerId, folderId);
+
+            return ResponseEntity.ok(newVersion);
+        } catch (IOException e) {
+
+            return ResponseEntity.internalServerError().body("Failed to upload file: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("An unexpected error occurred");
+        }
+    }
+
 
     @GetMapping("/getAllFiles")
     public ResponseEntity<List<File>> getAllFiles(@RequestParam long folderId,@RequestParam long ownerId) {

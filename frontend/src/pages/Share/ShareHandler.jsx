@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 
@@ -7,12 +7,24 @@ const ShareHandler = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const hasCheckedShare = useRef(false);
+
 
     useEffect(() => {
+        if (hasCheckedShare.current) return; // 避免重复调用
+        hasCheckedShare.current = true;
         const checkShare = async () => {
             try {
+                console.log(`hhhhh`);
+                console.log(localStorage.getItem('userId'));
+                const userId = localStorage.getItem('userId');
+                // 只有当userId有值且不是字符串"null"时才添加userId参数
+                let url = `${process.env.REACT_APP_API_URL}/share/${shareId}`;
+                if (userId && userId !== "null") {
+                    url += `?userId=${userId}`;
+                }
                 const response = await fetch(
-                    `http://localhost:8080/share/${shareId}?userId=${localStorage.getItem('userId')}`,
+                    `${url}`,
                     {
                         credentials: 'include',
                         headers: {
@@ -21,29 +33,37 @@ const ShareHandler = () => {
                         }
                     }
                 );
-
+                console.log(String(response.status));
                 if (response.status === 401) {
                     // 保存当前URL并重定向到登录页面
-                    localStorage.setItem('redirectAfterLogin', window.location.pathname);
+                    console.log(window.location.pathname);
+                    localStorage.setItem('redirectAfterLogin', `/share/${shareId}`);
                     navigate('/login');
                     return;
                 }
 
                 if (!response.ok) {
+
+                    if (response.status === 404) {
+                        navigate('/shareCanceled');
+                        return;
+                    }
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                const { type, requiresAuth, fileId, fileName } = data;
+                const { type, fileId, fileName, filePath } = data;
 
+                // 根据后端返回的type类型处理
                 if (type === 'READ') {
                     try {
+                        // 使用fileId进行下载
                         const downloadResponse = await fetch(
-                            `http://localhost:8080/download?fileId=${fileId}`,
+                            `${process.env.REACT_APP_API_URL}/download?fileId=${fileId}`,
                             {
                                 credentials: 'include',
                                 headers: {
-                                'Accept': 'application/json'
+                                    'Accept': 'application/json'
                                 }
                             }
                         );
@@ -66,32 +86,32 @@ const ShareHandler = () => {
                         setError('Failed to download file');
                     }
                 } else if (type === 'WRITE') {
-                    if (requiresAuth) {
-                        localStorage.setItem('redirectAfterLogin', window.location.pathname);
-                        navigate('/login');
-                    } else {
-                        try {
-                            const saveResponse = await fetch(
-                                `http://localhost:8080/saveShare/${shareId}?userId=${localStorage.getItem('userId')}`,
-                                {
-                                    method: 'POST',
-                                    credentials: 'include',
-                                    headers: {
-                                        'Accept': 'application/json',
-                                        'Content-Type': 'application/json'
-                                    }
+                    // 由于后端已经根据userId是否存在处理了权限，
+                    // 如果返回WRITE类型，则直接处理保存逻辑
+
+                    try {
+
+                        const saveResponse = await fetch(
+
+                            `${process.env.REACT_APP_API_URL}/saveShare/${shareId}?userId=${localStorage.getItem('userId')}&rootFolderId=${localStorage.getItem('rootFolderId')}`,
+                            {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json'
                                 }
-                            );
-
-                            if (!saveResponse.ok) {
-                                throw new Error('Failed to save shared file');
                             }
+                        );
 
-                            const { newFileId } = await saveResponse.json();
-                            navigate(`/editor/${newFileId}`);
-                        } catch (error) {
-                            setError('Failed to save shared file');
+                        if (!saveResponse.ok) {
+                            throw new Error('Failed to save shared file');
                         }
+
+                        const { newFileId } = await saveResponse.json();
+                        navigate(`/editor/${newFileId}`);
+                    } catch (error) {
+                        setError('Failed to save shared file');
                     }
                 }
             } catch (error) {
@@ -102,7 +122,10 @@ const ShareHandler = () => {
             }
         };
 
-        checkShare();
+
+        if (shareId) {
+            checkShare();
+        }
     }, [shareId, navigate]);
 
     if (loading) {

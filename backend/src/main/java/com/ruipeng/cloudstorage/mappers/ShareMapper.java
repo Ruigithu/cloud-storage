@@ -71,4 +71,18 @@ public interface ShareMapper {
             @Result(property = "active", column = "is_active")
     })
     List<Share> findByUserId(Long userId);
+
+
+    @Update("UPDATE shares " +
+            "SET " +
+            "    is_active = false " +
+            "WHERE id = #{shareId} AND created_by = #{userId}")
+    int cancelShare(UUID shareId, Long userId);
+
+    @Update("UPDATE shares " +
+            "SET " +
+            "    is_active = " +
+            "true " +
+            "WHERE id = #{shareId} AND created_by = #{userId}")
+    int restore(UUID shareId, Long userId);
 }

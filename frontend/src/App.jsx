@@ -8,6 +8,7 @@ import Collaboration from "./components/SideBar/SideBarNav/Collaboration/Collabo
 import Bin from "./components/SideBar/SideBarNav/Bin/Bin";
 import EditorPage from "./components/Tool/QuillEditor/EditPage";
 import ShareHandler from "./pages/Share/ShareHandler";
+import ShareCanceled from "./pages/Share/ShareCanceled";
  function App() {
     return(
      <BrowserRouter>
@@ -21,6 +22,8 @@ import ShareHandler from "./pages/Share/ShareHandler";
              <Route path="/bin" element={<Bin />} />
              <Route path="/editor/:fileId" element={<EditorPage/>}/>
              <Route path="/share/:shareId" element={<ShareHandler/>}/>
+             <Route path="/shareCanceled" element={<ShareCanceled/>}/>
+
 
          </Routes>
      </BrowserRouter>

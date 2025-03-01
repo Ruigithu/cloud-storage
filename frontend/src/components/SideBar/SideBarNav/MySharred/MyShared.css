@@ -109,11 +109,11 @@ img{
 /*    gap:10px;*/
 /*    margin-bottom: 20px;*/
 }
-
-
 .file-table {
-    width: 1000px;
+    width: 100%;
+    max-width: 1200px;
     border-collapse: collapse; /* 去掉单元格间的间隙 */
+    table-layout: fixed; /* 使表格列宽固定 */
 }
 
 .file-header {
@@ -126,17 +126,95 @@ img{
     border-bottom: 1px solid #ddd;
 }
 
-.file-data td {
+/* 设置各列宽度比例 */
+.file-header th:nth-child(1) { /* 文件名 */
+    width: 20%;
+}
+.file-header th:nth-child(2) { /* 分享链接 */
+    width: 35%;
+}
+.file-header th:nth-child(3) { /* 过期时间 */
+    width: 15%;
+}
+.file-header th:nth-child(4) { /* 授权 */
+    width: 15%;
+}
+.file-header th:nth-child(5) { /* 操作 */
+    width: 15%;
+    white-space: normal; /* 允许操作列内容换行 */
+}
+
+.share-data td {
     padding: 10px;
     border-bottom: 1px solid #ddd;
+    overflow: hidden;
+    white-space: normal;
+    text-overflow: ellipsis; /* 文本溢出显示省略号 */
 }
-.file-data{
+
+/* 特别处理分享链接列 */
+.share-data td:nth-child(2) {
+    max-width: 0; /* 配合text-overflow使用 */
+}
+
+/* 特别处理操作列，确保操作按钮能够完整显示 */
+.share-data td:nth-child(5) {
+    overflow: visible; /* 允许内容溢出 */
+    white-space: normal; /* 允许内容换行 */
+    text-overflow: clip; /* 不使用省略号 */
+    min-width: 120px; /* 确保有足够空间显示操作按钮 */
+}
+
+.share-data {
     cursor: pointer;
-    transition: background-color 0.3ms ease;
+    transition: background-color 0.3s ease;
 }
-.file-data:hover{
+
+.share-data:hover {
     background-color: lightgray;
 }
-.file-data:active {
+
+.share-data:active {
     background-color: #e0e0e0;
 }
+
+/* 可选：添加工具提示样式，当鼠标悬停时显示完整内容 */
+.share-data td[title] {
+    position: relative;
+}
+.file-data td {
+    white-space: normal; /* 允许换行 */
+    word-wrap: break-word; /* 兼容旧版浏览器 */
+    overflow-wrap: break-word; /* 现代浏览器换行 */
+    max-width: 200px; /* 你可以根据需要调整最大宽度 */
+}
+
+/*.file-table {*/
+/*    width: 1000px;*/
+/*    border-collapse: collapse; !* 去掉单元格间的间隙 *!*/
+/*}*/
+
+/*.file-header {*/
+/*    background-color: #f4f4f4;*/
+/*    text-align: left;*/
+/*}*/
+
+/*.file-header th {*/
+/*    padding: 10px;*/
+/*    border-bottom: 1px solid #ddd;*/
+/*}*/
+
+/*.file-data td {*/
+/*    padding: 10px;*/
+/*    border-bottom: 1px solid #ddd;*/
+/*}*/
+/*.file-data{*/
+/*    cursor: pointer;*/
+/*    transition: background-color 0.3ms ease;*/
+/*}*/
+/*.file-data:hover{*/
+/*    background-color: lightgray;*/
+/*}*/
+/*.file-data:active {*/
+/*    background-color: #e0e0e0;*/
+/*}*/

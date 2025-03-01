@@ -13,14 +13,14 @@ function Home() {
     const [files, setFiles] = useState([]);
     const [folders,setFolders]=useState([])
     const [actualUserId,setActualUserId] = useState(null);
-    const [rootFolderId,setRootFolderId]=useState(1)
+    const [rootFolderId,setRootFolderId]=useState(null)
     const dispatch=useDispatch();
     const navigate =useNavigate();
     const [navigationPath, setNavigationPath] = useState([{ id: 1, name: 'root' }]);
     //获取用户id 存到localstorage
     const fetchUserId = async()=>{
         try {
-            const response = await fetch(`http://localhost:8080/getUserInfo`,
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/getUserInfo`,
                 {
                     method: 'GET',
                     credentials: 'include',
@@ -54,15 +54,21 @@ function Home() {
 
     // 获取文件夹列表
     const fetchFoldersAndFiles = async () => {
-
         try {
+            // If rootFolderId is null, the API should return the user's root folder
+            const endpoint = rootFolderId
+                ? `${process.env.REACT_APP_API_URL}/getAllFiles?folderId=${rootFolderId}&ownerId=${localStorage.getItem('userId')}`
+                : `${process.env.REACT_APP_API_URL}/getRootFiles?ownerId=${localStorage.getItem('userId')}`;
+
             const [fileResponse, folderResponse] = await Promise.all([
-                fetch(`http://localhost:8080/getAllFiles?folderId=${rootFolderId}&ownerId=${localStorage.getItem('userId')}`, {
+                fetch(endpoint, {
                     method: 'GET',
                     headers: { "Content-Type": "application/json" },
                     credentials: 'include',
                 }),
-                fetch(`http://localhost:8080/getAllFolders?parentId=${rootFolderId}&userId=${localStorage.getItem('userId')}`, {
+                fetch(rootFolderId
+                    ? `${process.env.REACT_APP_API_URL}/getAllFolders?parentId=${rootFolderId}&userId=${localStorage.getItem('userId')}`
+                    : `${process.env.REACT_APP_API_URL}/getRootFolders?userId=${localStorage.getItem('userId')}`, {
                     method: 'GET',
                     headers: { "Content-Type": "application/json" },
                     credentials: 'include',
@@ -71,8 +77,17 @@ function Home() {
 
             if (fileResponse.ok && folderResponse.ok) {
                 const [fileData, folderData] = await Promise.all([fileResponse.json(), folderResponse.json()]);
+
+                // If this is the first load (rootFolderId is null), set the root folder ID
+                if (rootFolderId === null && folderData.rootFolderId) {
+                    setRootFolderId(folderData.rootFolderId);
+                    localStorage.setItem('rootFolderId',folderData.rootFolderId);
+                    console.log(`进这里了吗`+localStorage.getItem('rootFolderId'));
+                    setNavigationPath([{ id: folderData.rootFolderId, name: 'root' }]);
+                }
+
                 setFiles(fileData);
-                setFolders(folderData);
+                setFolders(folderData.folders || folderData);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -83,12 +98,23 @@ function Home() {
     // 组件挂载时获取文件列表
     useEffect(() => {
         fetchUserId();
+
     }, []);
 
     useEffect(() => {
         if (actualUserId) {
             fetchFoldersAndFiles();
         }
+        if (actualUserId){
+            const redirectUrl = localStorage.getItem('redirectAfterLogin');
+            if (redirectUrl) {
+                console.log(redirectUrl);
+                localStorage.removeItem('redirectAfterLogin');
+                navigate(redirectUrl);
+
+            }
+        }
+
     }, [rootFolderId, actualUserId]);
     // 文件上传成功后的回调函数
     const onFileUploadSuccess = () => {
@@ -213,16 +239,16 @@ function Home() {
                                         <td><i className="fa-solid fa-folder" style={{color: "#ffd129"}}></i> {folder.name}
                                         </td>
                                         <td>{folder.updatedAt}</td>
-                                        <td>{folder.id}</td>
+                                        <td>view</td>
                                         <td><OperateSpecificFolder folder={folder} userId={localStorage.getItem('userId')}/></td>
                                     </tr>
                                 ))}
                                 {files.map(file => (
-                                    //onClick={()=>handleFileClick(file.id)}
-                                    <tr key={file.id} className="file-data" >
-                                        <td><i className={getFileIcon(file.mimeType)} style={{color: fileIcons[getFileIcon(file.mimeType)]}}></i> {file.name}</td>
+
+                                    <tr key={file.id} className="file-data"   >
+                                        <td  onClick={()=>handleFileClick(file.id)}><i className={getFileIcon(file.mimeType)} style={{color: fileIcons[getFileIcon(file.mimeType)]}}></i> {file.name}</td>
                                         <td>{file.updatedAt}</td>
-                                        <td>{file.mimeType}</td>
+                                        <td>{formatFileSize(file.size)}</td>
                                         <td><OperateSpecificFile file={file} userId={localStorage.getItem('userId')}/></td>
                                     </tr>
                                 ))}

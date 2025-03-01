@@ -2,7 +2,7 @@ import React, {useRef, useState} from "react";
 import "./OperateSpecificSharedFile.css"
 
 
-const OperateSpecificSharedFile = ({file,userId}) => {
+const OperateSpecificSharedFile = ({shareId,userId,active,refresh}) => {
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const menuRef = useRef(null);
     const buttonRef = useRef(null);
@@ -37,29 +37,10 @@ const OperateSpecificSharedFile = ({file,userId}) => {
         };
     }, []);
 
-    async function handleDeleteFile(fileId, userId) {
+
+    async function handleCancelShare(id, userId) {
         try {
-            const response = await fetch(`http://localhost:8080/deleteFile?fileId=${fileId}&userId=${userId}`, {
-                method: "DELETE",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                credentials: 'include',
-            });
-
-            if (!response.ok) {
-                throw new Error(`Failed to delete the file: ${response.statusText}`);
-            }
-
-            console.log("File deleted successfully");
-        } catch (error) {
-            console.error("Error deleting file:", error);
-        }
-    }
-
-    async function handleRestoreFile(id, userId) {
-        try {
-            const response = await fetch(`http://localhost:8080/restoreFile?fileId=${id}&ownerId=${userId}`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/cancelShare?shareId=${id}&ownerId=${userId}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -71,9 +52,29 @@ const OperateSpecificSharedFile = ({file,userId}) => {
                 throw new Error(`Failed to delete the file: ${response.statusText}`);
             }
 
-            alert("File restored successfully");
+            alert("Share canceled successfully");
         } catch (error) {
-           alert("Error restoring file:"+ error);
+           alert("Error cancelling share:"+ error);
+        }
+    }
+    async function handleRestore(id, userId) {
+        try {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/restore?shareId=${id}&ownerId=${userId}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                credentials: 'include',
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to restore the file: ${response.statusText}`);
+
+            }
+
+            alert("Share restored successfully");
+        } catch (error) {
+            alert("Error restoring file:"+ error);
         }
     }
 
@@ -87,19 +88,19 @@ const OperateSpecificSharedFile = ({file,userId}) => {
             {isMenuVisible && (
                 <div ref={menuRef} className="menu-container">
                     <ul className="menu-list">
+                        {active ?
+                            <li
+                                className="restore more"
+                                onClick={() => handleCancelShare(shareId, userId)}>
+                                Cancel Share
+                            </li> :
+                            <li
+                                className="restore more"
+                                onClick={() => handleRestore(shareId, userId)}>
+                                Restore
+                            </li>
+                        }
 
-
-                        <li className="delete more"
-                            onClick={() => {
-                                handleDeleteFile(file.id, userId)
-                            }}>
-                            Modify Validation
-                        </li>
-                        <li
-                            className="restore more"
-                            onClick={() => handleRestoreFile(file.id, userId)}>
-                            Cancel Share
-                        </li>
 
                     </ul>
                 </div>

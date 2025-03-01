@@ -111,6 +111,7 @@ img{
 }
 
 
+
 .file-table {
     width: 1000px;
     border-collapse: collapse; /* 去掉单元格间的间隙 */
@@ -139,4 +140,10 @@ img{
 }
 .file-data:active {
     background-color: #e0e0e0;
+}
+.file-data td {
+    white-space: normal; /* 允许换行 */
+    word-wrap: break-word; /* 兼容旧版浏览器 */
+    overflow-wrap: break-word; /* 现代浏览器换行 */
+    max-width: 200px; /* 你可以根据需要调整最大宽度 */
 }

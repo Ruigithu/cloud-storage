@@ -1,22 +1,18 @@
-import OperateSpecificFile from "../../../Button/OperateSpecificFile/OperateSpecificFile";
-import AddNewContextMenu from "../../../Button/AddNewContextMenu/AddNewContextMenu";
 import Sidebar from "../../SideBar";
-import React, {useEffect,useState} from "react";
+import React, {useEffect, useState} from "react";
 import driveIcon from "../../../../assets/images/cloudversify-brands-solid.svg";
-import {useDispatch} from "react-redux";
-import OperateSpecificFolder from "../../../Button/OperateSpecificFolder/OperateSpecificFolder";
 import "./Bin.css"
 import OperateSpecificDeletedFolder from "./OperateSpecificDeletedFolder/OperateSpecificDeletedFolder";
 import OperateSpecificDeletedFile from "./OperateSpecificDeletedFile/OperateSpecificDeletedFile";
-
+import {useNavigate} from "react-router-dom";
 
 function Bin(){
     const [files, setFiles] = useState([]);
-    const [folders,setFolders]=useState([])
-    const actualUserId = localStorage.getItem('userId')
-    const [rootFolderId,setRootFolderId]=useState(1)
-    const [navigationPath, setNavigationPath] = useState([{ id: 1, name: 'root' }]);
-    //获取用户id 存到localstorage
+    const [folders, setFolders] = useState([]);
+    const actualUserId = localStorage.getItem('userId');
+    const [rootFolderId, setRootFolderId] = useState(localStorage.getItem('rootFolderId'));
+    const [navigationPath, setNavigationPath] = useState([{ id: localStorage.getItem('rootFolderId'), name: 'root' }]);
+    const navigate = useNavigate();
 
     const formatFileSize = (bytes) => {
         if (bytes === 0) return '0 Bytes';
@@ -26,17 +22,15 @@ function Bin(){
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    // 获取文件夹列表
     const fetchFoldersAndFiles = async () => {
-
         try {
             const [fileResponse, folderResponse] = await Promise.all([
-                fetch(`http://localhost:8080/getAllDeletedFiles?folderId=${rootFolderId}&ownerId=${localStorage.getItem('userId')}`, {
+                fetch(`${process.env.REACT_APP_API_URL}/getAllDeletedFiles?folderId=${rootFolderId}&ownerId=${localStorage.getItem('userId')}`, {
                     method: 'GET',
                     headers: { "Content-Type": "application/json" },
                     credentials: 'include',
                 }),
-                fetch(`http://localhost:8080/getAllDeletedFolders?parentId=${rootFolderId}&userId=${localStorage.getItem('userId')}`, {
+                fetch(`${process.env.REACT_APP_API_URL}/getAllDeletedFolders?parentId=${rootFolderId}&userId=${localStorage.getItem('userId')}`, {
                     method: 'GET',
                     headers: { "Content-Type": "application/json" },
                     credentials: 'include',
@@ -45,25 +39,58 @@ function Bin(){
 
             if (fileResponse.ok && folderResponse.ok) {
                 const [fileData, folderData] = await Promise.all([fileResponse.json(), folderResponse.json()]);
-                setFiles(fileData);
-                setFolders(folderData);
+                console.log("API返回的文件:", fileData);
+                console.log("当前文件夹ID:", rootFolderId);
+                console.log("匹配此文件夹的文件:", fileData.filter(file => String(file.folderId) === String(rootFolderId)));
+                // Check that IDs are unique between files and folders
+                // Create a map to track seen IDs
+                const seenIds = new Map();
+
+                // Process folders first
+                const uniqueFolders = folderData.filter(folder => {
+                    // Create a unique identifier for folders with prefix
+                    const uniqueId = `folder_${folder.id}`;
+
+                    // Check if we've seen this ID before
+                    if (seenIds.has(folder.id)) {
+                        console.warn(`Duplicate folder ID found: ${folder.id}`);
+                        return false;
+                    }
+
+                    // Mark this ID as seen
+                    seenIds.set(folder.id, true);
+                    return true;
+                });
+
+                // Process files
+                const uniqueFiles = fileData.filter(file => {
+                    // Create a unique identifier for files with prefix
+                    const uniqueId = `file_${file.id}`;
+
+                    // Check if we've seen this ID before
+                    if (seenIds.has(file.id)) {
+                        console.warn(`Duplicate file ID found: ${file.id}`);
+                        return false;
+                    }
+
+                    // Mark this ID as seen
+                    seenIds.set(file.id, true);
+                    return true;
+                });
+
+                setFiles(uniqueFiles);
+                setFolders(uniqueFolders);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
         }
     };
 
-
     useEffect(() => {
         if (actualUserId) {
             fetchFoldersAndFiles();
         }
     }, [rootFolderId, actualUserId]);
-    // 文件上传成功后的回调函数
-
-    const onFileUploadSuccess = () => {
-        fetchFoldersAndFiles();  // 上传成功后刷新文件列表
-    };
 
     const getFileIcon = (fileType) => {
         if (fileType.startsWith("image/")) return "fa-regular fa-image"; // 图片
@@ -75,6 +102,7 @@ function Bin(){
         if (fileType.includes("powerpoint")) return "fa-regular fa-file-powerpoint"; // PPT
         return "fa-regular fa-file";
     };
+
     const fileIcons = {
         "fa-regular fa-image": "#007cdb",  // 蓝色（图片）
         "fa-regular fa-file-video":"#ff4500", // 橙色（视频）
@@ -91,6 +119,10 @@ function Bin(){
         setNavigationPath(prev => [...prev, { id: folderId, name: folderName }]);
     };
 
+    const handleFileClick = (fileId) => {
+        navigate(`/editor/${fileId}`);
+    };
+
     const handleBackward = () => {
         if (navigationPath.length > 1) {
             const newPath = navigationPath.slice(0, -1);
@@ -105,6 +137,10 @@ function Bin(){
         setRootFolderId(newPath[newPath.length - 1].id);
     };
 
+    // Function to prevent event propagation to parent
+    const handleOperationClick = (e) => {
+        e.stopPropagation();
+    };
 
     return (
         <div className="container">
@@ -166,34 +202,38 @@ function Bin(){
                             </thead>
                             <tbody>
                             {folders.map(folder => (
-                                <tr key={folder.id} className="file-data" onClick={() => handleFolderClick(folder.id,folder.name)}>
+                                <tr key={`folder-${folder.id}`} className="file-data" onClick={() => handleFolderClick(folder.id, folder.name)}>
                                     <td><i className="fa-solid fa-folder" style={{color: "#ffd129"}}></i> {folder.name}
                                     </td>
                                     <td>{folder.updatedAt}</td>
                                     <td></td>
-                                    <td><OperateSpecificDeletedFolder folder={folder} userId={actualUserId}/></td>
+                                    <td onClick={handleOperationClick}>
+                                        <OperateSpecificDeletedFolder folder={folder} userId={actualUserId}/>
+                                    </td>
                                 </tr>
                             ))}
-                            {files.map(file => (
-                                <tr key={file.id} className="file-data">
+                            {files
+                                .filter(file => String(file.folderId) === String(rootFolderId))
+                                .map(file => (
+                                <tr key={`file-${file.id}`} className="file-data" onClick={() => handleFileClick(file.id)}>
                                     <td><i className={getFileIcon(file.mimeType)} style={{color: fileIcons[getFileIcon(file.mimeType)]}}></i> {file.name}</td>
                                     <td>{file.updatedAt}</td>
-                                    <td>{file.id}</td>
-                                    <td><OperateSpecificDeletedFile file={file} userId={actualUserId}/></td>
+                                    <td>{file.size ? formatFileSize(file.size) : '-'}</td>
+                                    <td onClick={handleOperationClick}>
+                                        <OperateSpecificDeletedFile file={file} userId={actualUserId}/>
+                                    </td>
                                 </tr>
                             ))}
                             </tbody>
                         </table>
-                        {files.length === 0 && (
-                            <div className="no-files">No files found</div>
+                        {files.length === 0 && folders.length === 0 && (
+                            <div className="no-files">No deleted files or folders found</div>
                         )}
                     </div>
-
                 </div>
             </div>
         </div>
-
     );
-
 }
-export default Bin
+
+export default Bin;
