@@ -1,8 +1,7 @@
-// src/store/userSlice.js
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-    userInfo: null, // 存储用户信息
+    userInfo: null,
 };
 
 const userSlice = createSlice({
@@ -10,16 +9,16 @@ const userSlice = createSlice({
     initialState,
     reducers: {
         setUserInfo: (state, action) => {
-            state.userInfo = action.payload; // 更新用户信息
+            state.userInfo = action.payload; // update
         },
         clearUserInfo: (state) => {
-            state.userInfo = null; // 退出登录时清除用户信息
+            state.userInfo = null; // clean
         }
     }
 });
 
-// 导出 actions
+// export actions
 export const { setUserInfo, clearUserInfo } = userSlice.actions;
 
-// 导出 reducer
+// export reducer
 export default userSlice.reducer;

@@ -11,12 +11,12 @@ import UploadFolder from "../UploadFolder/UploadFolder";
 
 
 
-        // 点击按钮显示/隐藏菜单
+        // display/hide the menu
         const handleButtonClick = () => {
             setIsMenuVisible(!isMenuVisible);
         };
 
-        // 点击外部关闭菜单
+        // click the outside part and close the menu
         const handleClickOutside = (e) => {
             if (menuRef.current &&
                 !menuRef.current.contains(e.target) &&
@@ -34,7 +34,7 @@ import UploadFolder from "../UploadFolder/UploadFolder";
 
         return (
             <div className="add-new-menu-container">
-                {/* 触发按钮 */}
+                {/* click the btn */}
                 <button
                     ref={buttonRef}
                     className="add-new-button"
@@ -43,20 +43,20 @@ import UploadFolder from "../UploadFolder/UploadFolder";
                     {buttonLabel}
                 </button>
 
-                {/* 下拉菜单 */}
+                {/* the selection menu */}
                 {isMenuVisible && (
                     <div ref={menuRef} className="menu-container">
-                    <ul className="menu-list">
-                        <li className="create-new">
-                            <UploadFile onFileUploadSuccess={onFileUploadSuccess} folderId={parentId} ownerId={userId}/>
-                        </li>
-                        <li className="create-new">
-                            <CreateFolder onFileUploadSuccess={onFileUploadSuccess} parentId={parentId} userId={userId}/>
-                        </li>
-                        <li className="create-new">
-                            <UploadFolder  onFileUploadSuccess={onFileUploadSuccess} parentId={parentId} userId={userId}/>
-                        </li>
-                    </ul>
+                        <ul className="menu-list">
+                            <li className="create-new">
+                                <UploadFile onFileUploadSuccess={onFileUploadSuccess} folderId={parentId} ownerId={userId}/>
+                            </li>
+                            <li className="create-new">
+                                <CreateFolder onFileUploadSuccess={onFileUploadSuccess} parentId={parentId} userId={userId}/>
+                            </li>
+                            <li className="create-new">
+                                <UploadFolder  onFileUploadSuccess={onFileUploadSuccess} parentId={parentId} userId={userId}/>
+                            </li>
+                        </ul>
                     </div>
                 )}
             </div>

@@ -1,5 +1,3 @@
-/* ShareFileDialog.css */
-
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -13,7 +11,7 @@
     z-index: 9999;
 }
 
-/* Modal container - 白色容器 */
+/* Modal container */
 .modal-container {
     background-color: white;
     border-radius: 8px;

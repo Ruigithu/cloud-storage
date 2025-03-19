@@ -1,12 +1,11 @@
 html, body {
     margin: 0;
     padding: 0;
-    height: 100%; /* 确保 body 和 html 的高度填满视窗 */
-    box-sizing: border-box; /* 确保 padding 不影响宽高计算 */
+    height: 100%;
+    box-sizing: border-box;
 }
 .container{
-    display:grid;
-    grid-template-rows:auto auto;
+    display:flex;
     background-color: aliceblue;
     height:100vh;
     gap: 0;
@@ -14,45 +13,36 @@ html, body {
 }
 /*Header*/
 header{
-    display: grid;
-    grid-template-columns: 1fr 4fr 1fr;
+    display: flex;
     background-color: aliceblue;
     height: 100px;
-    justify-items: center; /* 水平方向居中 */
+    justify-content: center;
     align-items: center;
-    margin-bottom: 0; /* 确保没有外边距 */
+    margin-bottom: 0;
 }
 img{
     width:50px;
     height:50px;
 }
 .search-box{
-    width: 500px; /* 设置宽度 */
-    height: 40px; /* 设置高度 */
-    padding: 0 10px; /* 内边距，确保内容不贴边 */
-    border: 1px solid #ccc; /* 边框 */
-    border-radius: 5px; /* 圆角 */
-    font-size: 16px; /* 字体大小 */
-    outline: none; /* 去除聚焦时的默认样式 */
-}
-.file-upload-btn{
+    width: 500px;
+    height: 40px;
+    padding: 0 10px;
+    border: 1px solid #ccc;
     border-radius: 5px;
-    font-size:12px;
-    padding: 3px;
-    background: aliceblue;
-    text-align: center;
+    font-size: 16px;
     outline: none;
 }
+
 .home-main-content{
     display:grid;
     grid-template-columns: 1fr 5fr;
-    height: calc(100vh - 100px); /* 剩余高度分配给主内容 */
+    height: calc(100vh - 100px); /* Main content fills the remaining height */
 }
 
 /*aside nav*/
 .aside-nav{
-    display: grid;
-    grid-template-rows:50px 50px 50px 50px 50px 50px 50px;
+    display: flex;
     background:aliceblue;
     padding:50px;
     padding-top: 20px;
@@ -67,8 +57,8 @@ img{
     transition: background-color 0.3s ease;
 }
 .aside-button:hover {
-    background-color: #eedfcc; /* 稍微深一点的颜色 */
-    color: #333; /* 改变文字颜色 */
+    background-color: #eedfcc;
+    color: #333;
 }
 
 /*file-display*/
@@ -86,11 +76,11 @@ img{
     display: flex;
     flex-direction: row;
     align-items: flex-end;
-    justify-content: space-between; /* 左右两端对齐，.main-button 始终在右边 */
-    width: 80%; /* 让 first-row 撑满父级宽度 */
-    gap: 10px; /* 设置子元素间距 */
+    justify-content: space-between;
+    width: 80%;
+    gap: 10px;
     margin-bottom: 20px;
-    align-self: flex-start; /* 让它自己靠左对齐 */
+    align-self: flex-start;
     margin-left: 120px;
 }
 .folder-path{
@@ -99,22 +89,10 @@ img{
     align-items: flex-end;
 }
 
-.main-button{
-/*    width: 1100px;*/
-/*    display:grid;*/
-/*    justify-content: end;*/
-/*    grid-template-columns: 100px 100px;*/
-/*    padding:10px;*/
-/*    border-radius: 5px;*/
-/*    gap:10px;*/
-/*    margin-bottom: 20px;*/
-}
-
-
 
 .file-table {
     width: 1000px;
-    border-collapse: collapse; /* 去掉单元格间的间隙 */
+    border-collapse: collapse;
 }
 
 .file-header {
@@ -142,8 +120,8 @@ img{
     background-color: #e0e0e0;
 }
 .file-data td {
-    white-space: normal; /* 允许换行 */
-    word-wrap: break-word; /* 兼容旧版浏览器 */
-    overflow-wrap: break-word; /* 现代浏览器换行 */
-    max-width: 200px; /* 你可以根据需要调整最大宽度 */
+    white-space: normal; /* new line */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 200px;
 }

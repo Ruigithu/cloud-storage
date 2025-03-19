@@ -33,13 +33,13 @@
 .fa-ellipsis {
     position: relative;
     cursor: pointer;
-    padding: 8px; /* 为图标添加间距，使其看起来更大 */
-    border-radius: 50%; /* 使背景变为圆形 */
+    padding: 8px;
+    border-radius: 50%;
     transition: background-color 0.2s ease, box-shadow 0.2s ease; /* 平滑过渡 */
 }
 
 
 .fa-ellipsis:hover {
-    background-color: rgba(0, 0, 0, 0.08); /* 点击时的背景色 */
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.2); /* 点击时的阴影效果 */
+    background-color: rgba(0, 0, 0, 0.08);
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
 }

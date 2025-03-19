@@ -16,7 +16,6 @@ public class MyBatisConfig {
         SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
         factoryBean.setDataSource(dataSource);
 
-        // 注册 TypeHandler
         factoryBean.setTypeHandlers(new TypeHandler[]{
                 new LtreeTypeHandler(),
                 new PermissionTypeHandler(),

@@ -46,9 +46,7 @@ public class FolderController {
 
     @PostMapping("/createFolder")
     public ResponseEntity<Folder> createFolder(@RequestParam("name")String name,@RequestParam("parentId")Long parentId,@RequestParam("userId") Long userId) throws SQLException, NotFoundException, AccessDeniedException {
-        System.out.println("开始创建新文件夹");
-        System.out.println("文件夹名字:"+name+" parentId:"+parentId+" userId:"+userId);
-        Folder folder = folderService.createFolder(name, parentId, userId);
+       Folder folder = folderService.createFolder(name, parentId, userId);
         return ResponseEntity.ok(folder);
     }
 
@@ -57,7 +55,6 @@ public class FolderController {
             @RequestParam(required = false) Long parentId,
             @RequestParam Long userId) {
         try {
-            // 如果parentId为null，获取用户的根文件夹
             if (parentId == null) {
                 Long rootId = folderService.getRootFolderId(userId);
                 Map<String, Object> response = new HashMap<>();
@@ -99,13 +96,7 @@ public class FolderController {
     @GetMapping("/getAllDeletedFolders")
     public ResponseEntity<List<Folder>> getAllDeletedFolders(@RequestParam long parentId, @RequestParam long userId) throws SQLException {
 
-        System.out.println(parentId+" aaaaa "+userId);
         List<Folder> folders = folderService.getAllDeletedFolders(userId,parentId);
-        if (folders!=null){
-            for (Folder folder:folders){
-                System.out.println("文件夹名字是："+folder.getName());
-            }
-        }
         return ResponseEntity.ok().body(folders);
     }
 
@@ -130,7 +121,7 @@ public class FolderController {
                             "attachment; filename=\"" + URLEncoder.encode(downloadInfo.getFileName() + ".zip", "UTF-8") + "\"")
                     .body(downloadInfo.getResource());
         } catch (Exception e) {
-            throw new RuntimeException("文件夹下载失败: " + e.getMessage());
+            throw new RuntimeException("fail downloading folder " + e.getMessage());
         }
     }
 
@@ -147,21 +138,11 @@ public class FolderController {
         }
 
         try {
-            System.out.println("Received " + files.length + " files.");
-            System.out.println("Received " + relativePaths.length + " paths.");
-            for (MultipartFile file : files) {
-                System.out.println("文件名字是："+file.getOriginalFilename());
-            }
-            for (String path : relativePaths) {
-                System.out.println("文件相对路径是："+path
-                );
-            }
-
             folderService.uploadFolder(files, relativePaths, userId, parentFolderId);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("文件夹上传失败: " + e.getMessage());
+                    .body("fail uploading folder " + e.getMessage());
         }
     }
 

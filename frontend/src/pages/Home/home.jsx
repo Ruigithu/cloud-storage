@@ -4,7 +4,7 @@ import './home.css';
 import AddNewContextMenu     from "../../components/Button/AddNewContextMenu/AddNewContextMenu";
 import OperateSpecificFile from "../../components/Button/OperateSpecificFile/OperateSpecificFile";
 import Sidebar from "../../components/SideBar/SideBar";
-import { useDispatch } from 'react-redux';
+import {useDispatch } from 'react-redux';
 import {setUserInfo} from "../../components/Tool/UserInfo/userSlice";
 import OperateSpecificFolder from "../../components/Button/OperateSpecificFolder/OperateSpecificFolder";
 import {useNavigate} from "react-router-dom";
@@ -17,7 +17,7 @@ function Home() {
     const dispatch=useDispatch();
     const navigate =useNavigate();
     const [navigationPath, setNavigationPath] = useState([{ id: 1, name: 'root' }]);
-    //获取用户id 存到localstorage
+    //get userid, restore it in localstorage
     const fetchUserId = async()=>{
         try {
             const response = await fetch(`${process.env.REACT_APP_API_URL}/getUserInfo`,
@@ -52,7 +52,7 @@ function Home() {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    // 获取文件夹列表
+    // get  folders and files list
     const fetchFoldersAndFiles = async () => {
         try {
             // If rootFolderId is null, the API should return the user's root folder
@@ -95,7 +95,7 @@ function Home() {
     };
 
 
-    // 组件挂载时获取文件列表
+    // get  folders and files list when component mounting
     useEffect(() => {
         fetchUserId();
 
@@ -116,30 +116,31 @@ function Home() {
         }
 
     }, [rootFolderId, actualUserId]);
-    // 文件上传成功后的回调函数
+
+
     const onFileUploadSuccess = () => {
-        fetchFoldersAndFiles();  // 上传成功后刷新文件列表
+        fetchFoldersAndFiles();  // refresh the file list
     };
 
     const getFileIcon = (fileType) => {
-        if (fileType.startsWith("image/")) return "fa-regular fa-image"; // 图片
-        if (fileType.startsWith("video/")) return "fa-regular fa-file-video"; // 视频
-        if (fileType.startsWith("audio/")) return "fa-regular fa-file-audio"; // 音频
-        if (fileType === "application/pdf") return "fa-regular fa-file-pdf"; // PDF
-        if (fileType.includes("word")) return "fa-regular fa-file-word"; // Word 文档
-        if (fileType.includes("excel")) return "fa-regular fa-file-excel"; // Excel 文件
-        if (fileType.includes("powerpoint")) return "fa-regular fa-file-powerpoint"; // PPT
+        if (fileType.startsWith("image/")) return "fa-regular fa-image";
+        if (fileType.startsWith("video/")) return "fa-regular fa-file-video";
+        if (fileType.startsWith("audio/")) return "fa-regular fa-file-audio";
+        if (fileType === "application/pdf") return "fa-regular fa-file-pdf";
+        if (fileType.includes("word")) return "fa-regular fa-file-word";
+        if (fileType.includes("excel")) return "fa-regular fa-file-excel";
+        if (fileType.includes("powerpoint")) return "fa-regular fa-file-powerpoint";
         return "fa-regular fa-file";
     };
     const fileIcons = {
-        "fa-regular fa-image": "#007cdb",  // 蓝色（图片）
-        "fa-regular fa-file-video":"#ff4500", // 橙色（视频）
-        "fa-regular fa-file-audio":"#32cd32", // 绿色（音频）
-        "fa-regular fa-file-pdf":"#ff0000", // 红色（PDF）
-        "fa-regular fa-file-word":"#2b579a", // 深蓝色（Word）
-        "fa-regular fa-file-excel":"#217346", // 绿色（Excel）
-        "fa-regular fa-file-powerpoint": "#d24726", // 深橙色（PPT）
-        "fa-regular fa-file":"#808080", // 灰色（默认）
+        "fa-regular fa-image": "#007cdb",  // blue（img）
+        "fa-regular fa-file-video":"#ff4500", // orange（video）
+        "fa-regular fa-file-audio":"#32cd32", // green（audio）
+        "fa-regular fa-file-pdf":"#ff0000", // red（PDF）
+        "fa-regular fa-file-word":"#2b579a", // dark blue（Word）
+        "fa-regular fa-file-excel":"#217346", // green（Excel）
+        "fa-regular fa-file-powerpoint": "#d24726", // dark orange（PPT）
+        "fa-regular fa-file":"#808080", // gray（default）
 };
 
     const handleFolderClick = (folderId, folderName) => {
@@ -178,12 +179,6 @@ function Home() {
                     </label>
                 </div>
                 <AddNewContextMenu onFileUploadSuccess={onFileUploadSuccess} parentId={rootFolderId} userId={localStorage.getItem('userId')}/>
-                {/*<form onSubmit={handleUpload}>*/}
-                {/*    <label className="file-upload-btn">*/}
-                {/*        + Add New*/}
-                {/*        <input type="file" style={{display: 'none'}}/>*/}
-                {/*    </label>*/}
-                {/*</form>*/}
             </header>
 
             <div className="home-main-content">
@@ -217,9 +212,6 @@ function Home() {
                                     </span>
                                 ))}
                             </div>
-                        </div>
-                        <div className="main-button">
-                            <button type="button">Change View</button>
                         </div>
 
                     </div>

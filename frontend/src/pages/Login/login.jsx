@@ -8,13 +8,9 @@ function Login(){
     const navigate =useNavigate();
 
     const handleSubmit = async (e)=>{
-//form tag has the default action like
+
         e.preventDefault();
 
-// URLSearchParams is a inner web api,it is kind of using the key-value
-//form to store the data
-//example:{username: "Alice"
-//         password: "12345"}
 
         const formData = new URLSearchParams();
         formData.append('username', username.trim());
@@ -25,10 +21,10 @@ function Login(){
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json'  // 明确指定需要JSON响应
+                    'Accept': 'application/json'
                 },
                 body: formData.toString(),
-                credentials: 'include'  // 保留这个设置，它确实必要
+                credentials: 'include'
             });
 
             //get the authentication response

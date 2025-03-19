@@ -14,7 +14,7 @@ function UploadFolder({ onFileUploadSuccess,userId,parentId }) {
             setIsUploading(true);
             Array.from(files).forEach((file, index) => {
                 formData.append('files', file);
-                // 获取相对路径
+                // relative route
                 const relativePath = file.webkitRelativePath;
                 formData.append('paths', relativePath);
             });
@@ -33,7 +33,7 @@ function UploadFolder({ onFileUploadSuccess,userId,parentId }) {
                 const data = await response.json();
                 console.log(data);
                 if (onFileUploadSuccess) {
-                    onFileUploadSuccess();  // 调用父组件的回调函数
+                    onFileUploadSuccess();
                 }
             } else {
                 console.error('Upload failed');

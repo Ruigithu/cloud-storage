@@ -55,7 +55,6 @@ public class SecurityConfig {
                 )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
-                            // 检查是否是API请求（通过Accept头或URL路径判断）
                             boolean isApiRequest = request.getHeader("Accept") != null &&
                                     request.getHeader("Accept").contains("application/json") ||
                                     request.getRequestURI().startsWith("/share/");
@@ -71,9 +70,8 @@ public class SecurityConfig {
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
-                        .loginProcessingUrl("/login")  // 使用原有的登录URL
+                        .loginProcessingUrl("/login")
                         .successHandler((request, response, authentication) -> {
-                            // 检查是否是API请求
                             if (request.getHeader("Accept") != null &&
                                     request.getHeader("Accept").contains("application/json")) {
                                 response.setStatus(HttpServletResponse.SC_OK);

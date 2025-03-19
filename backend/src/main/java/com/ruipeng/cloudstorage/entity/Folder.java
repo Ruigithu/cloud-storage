@@ -13,7 +13,7 @@ public class Folder {
     private Long ownerId;
     private Instant createdAt;
     private Instant updatedAt;
-    private  PGobject path;    // ltree 类型存储为 String
+    private  PGobject path;    // ltree --String
     private boolean isDeleted;
 
     public Folder(Long id, String name, Long ownerId, Long parentId, Instant createdAt, Instant updatedAt, PGobject path, boolean isDeleted) {

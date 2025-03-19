@@ -28,7 +28,7 @@ public class HomeController {
         long currentUserId = SecurityUtil.getCurrentUserId();
 
         List<File> files = fileService.getFiles(currentUserId,0);
-        System.out.println("一共有文件：" + files.size());
+        System.out.println("file amount" + files.size());
 
 
         return ResponseEntity.ok().body(Map.of("message", "Successfully accessed home"));

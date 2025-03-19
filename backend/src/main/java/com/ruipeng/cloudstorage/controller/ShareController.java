@@ -67,12 +67,10 @@ public class ShareController {
         System.out.println(shareId + "," + userId);
         try {
             if (userId == null) {
-                // 可以返回一个简单的错误消息而不是完整的响应
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body("Authentication required");
             }
             ShareInfoResponse response = shareService.getShareInfo(shareId, userId);
-            System.out.println("执行到这一步了");
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
@@ -102,14 +100,14 @@ public class ShareController {
             return ResponseEntity.ok(Map.of("newFileId", existingFileId, "note", "Already processed"));
         }
 
-        processedCache.put(operationKey, true); // 先放置缓存，避免重复请求
+        processedCache.put(operationKey, true);
 
         try {
             Long newFileId = shareService.saveSharedFile(shareId, userId, rootFolderId);
             resultCache.put(operationKey, newFileId);
             return ResponseEntity.ok(Map.of("newFileId", newFileId));
         } catch (Exception e) {
-            processedCache.evict(operationKey); // 如果失败，清除缓存，允许重试
+            processedCache.evict(operationKey);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to save shared file"));
         }

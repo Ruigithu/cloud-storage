@@ -6,14 +6,13 @@ const OperateSpecificDeletedFolder = ({ folder, userId }) => {
     const menuRef = useRef(null);
     const buttonRef = useRef(null);
 
-    // 点击按钮显示/隐藏菜单
+
     const handleButtonClick = (e) => {
-        e.stopPropagation(); // 阻止事件冒泡
+        e.stopPropagation();
         console.log("Button clicked");
         setIsMenuVisible(!isMenuVisible);
     };
 
-    // 点击外部关闭菜单
     const handleClickOutside = (e) => {
         if (menuRef.current &&
             !menuRef.current.contains(e.target) &&
@@ -70,7 +69,6 @@ const OperateSpecificDeletedFolder = ({ folder, userId }) => {
 
     return (
         <div className="operate-file-menu-container">
-            {/* 触发按钮 */}
             <i
                 className="fa-solid fa-ellipsis more"
                 style={{color: '#bcbdbd'}}
@@ -78,7 +76,6 @@ const OperateSpecificDeletedFolder = ({ folder, userId }) => {
                 onClick={handleButtonClick}
             />
 
-            {/* 下拉菜单 */}
             {isMenuVisible && (
                 <div ref={menuRef} className="menu-container">
                     <ul className="menu-list">

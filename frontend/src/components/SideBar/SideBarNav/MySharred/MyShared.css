@@ -1,8 +1,8 @@
 html, body {
     margin: 0;
     padding: 0;
-    height: 100%; /* 确保 body 和 html 的高度填满视窗 */
-    box-sizing: border-box; /* 确保 padding 不影响宽高计算 */
+    height: 100%;
+    box-sizing: border-box;
 }
 .container{
     display:grid;
@@ -18,22 +18,22 @@ header{
     grid-template-columns: 1fr 4fr 1fr;
     background-color: aliceblue;
     height: 100px;
-    justify-items: center; /* 水平方向居中 */
+    justify-items: center;
     align-items: center;
-    margin-bottom: 0; /* 确保没有外边距 */
+    margin-bottom: 0;
 }
 img{
     width:50px;
     height:50px;
 }
 .search-box{
-    width: 500px; /* 设置宽度 */
-    height: 40px; /* 设置高度 */
-    padding: 0 10px; /* 内边距，确保内容不贴边 */
-    border: 1px solid #ccc; /* 边框 */
-    border-radius: 5px; /* 圆角 */
-    font-size: 16px; /* 字体大小 */
-    outline: none; /* 去除聚焦时的默认样式 */
+    width: 500px;
+    height: 40px;
+    padding: 0 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    outline: none;
 }
 .file-upload-btn{
     border-radius: 5px;
@@ -46,13 +46,12 @@ img{
 .home-main-content{
     display:grid;
     grid-template-columns: 1fr 5fr;
-    height: calc(100vh - 100px); /* 剩余高度分配给主内容 */
+    height: calc(100vh - 100px);
 }
 
 /*aside nav*/
 .aside-nav{
-    display: grid;
-    grid-template-rows:50px 50px 50px 50px 50px 50px 50px;
+    display: flex;
     background:aliceblue;
     padding:50px;
     padding-top: 20px;
@@ -67,8 +66,8 @@ img{
     transition: background-color 0.3s ease;
 }
 .aside-button:hover {
-    background-color: #eedfcc; /* 稍微深一点的颜色 */
-    color: #333; /* 改变文字颜色 */
+    background-color: #eedfcc;
+    color: #333;
 }
 
 /*file-display*/
@@ -86,11 +85,11 @@ img{
     display: flex;
     flex-direction: row;
     align-items: flex-end;
-    justify-content: space-between; /* 左右两端对齐，.main-button 始终在右边 */
-    width: 80%; /* 让 first-row 撑满父级宽度 */
-    gap: 10px; /* 设置子元素间距 */
+    justify-content: space-between;
+    width: 80%;
+    gap: 10px;
     margin-bottom: 20px;
-    align-self: flex-start; /* 让它自己靠左对齐 */
+    align-self: flex-start;
     margin-left: 120px;
 }
 .folder-path{
@@ -99,21 +98,11 @@ img{
     align-items: flex-end;
 }
 
-.main-button{
-/*    width: 1100px;*/
-/*    display:grid;*/
-/*    justify-content: end;*/
-/*    grid-template-columns: 100px 100px;*/
-/*    padding:10px;*/
-/*    border-radius: 5px;*/
-/*    gap:10px;*/
-/*    margin-bottom: 20px;*/
-}
 .file-table {
     width: 100%;
     max-width: 1200px;
-    border-collapse: collapse; /* 去掉单元格间的间隙 */
-    table-layout: fixed; /* 使表格列宽固定 */
+    border-collapse: collapse;
+    table-layout: fixed;
 }
 
 .file-header {
@@ -126,22 +115,22 @@ img{
     border-bottom: 1px solid #ddd;
 }
 
-/* 设置各列宽度比例 */
-.file-header th:nth-child(1) { /* 文件名 */
+
+.file-header th:nth-child(1) { /* file name */
     width: 20%;
 }
-.file-header th:nth-child(2) { /* 分享链接 */
+.file-header th:nth-child(2) { /* share link */
     width: 35%;
 }
-.file-header th:nth-child(3) { /* 过期时间 */
+.file-header th:nth-child(3) { /* expire time*/
     width: 15%;
 }
-.file-header th:nth-child(4) { /* 授权 */
+.file-header th:nth-child(4) { /* authorization */
     width: 15%;
 }
-.file-header th:nth-child(5) { /* 操作 */
+.file-header th:nth-child(5) { /* more */
     width: 15%;
-    white-space: normal; /* 允许操作列内容换行 */
+    white-space: normal; /* new line */
 }
 
 .share-data td {
@@ -149,20 +138,20 @@ img{
     border-bottom: 1px solid #ddd;
     overflow: hidden;
     white-space: normal;
-    text-overflow: ellipsis; /* 文本溢出显示省略号 */
+    text-overflow: ellipsis; /* Ellipses */
 }
 
-/* 特别处理分享链接列 */
+/* share link */
 .share-data td:nth-child(2) {
-    max-width: 0; /* 配合text-overflow使用 */
+    max-width: 0;
 }
 
-/* 特别处理操作列，确保操作按钮能够完整显示 */
+/* more */
 .share-data td:nth-child(5) {
-    overflow: visible; /* 允许内容溢出 */
-    white-space: normal; /* 允许内容换行 */
-    text-overflow: clip; /* 不使用省略号 */
-    min-width: 120px; /* 确保有足够空间显示操作按钮 */
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+    min-width: 120px;
 }
 
 .share-data {
@@ -178,43 +167,14 @@ img{
     background-color: #e0e0e0;
 }
 
-/* 可选：添加工具提示样式，当鼠标悬停时显示完整内容 */
+/* hover: show the complete content */
 .share-data td[title] {
     position: relative;
 }
 .file-data td {
-    white-space: normal; /* 允许换行 */
-    word-wrap: break-word; /* 兼容旧版浏览器 */
-    overflow-wrap: break-word; /* 现代浏览器换行 */
-    max-width: 200px; /* 你可以根据需要调整最大宽度 */
+    white-space: normal;
+    word-wrap: break-word; /* old browser */
+    overflow-wrap: break-word; /* modern */
+    max-width: 200px;
 }
 
-/*.file-table {*/
-/*    width: 1000px;*/
-/*    border-collapse: collapse; !* 去掉单元格间的间隙 *!*/
-/*}*/
-
-/*.file-header {*/
-/*    background-color: #f4f4f4;*/
-/*    text-align: left;*/
-/*}*/
-
-/*.file-header th {*/
-/*    padding: 10px;*/
-/*    border-bottom: 1px solid #ddd;*/
-/*}*/
-
-/*.file-data td {*/
-/*    padding: 10px;*/
-/*    border-bottom: 1px solid #ddd;*/
-/*}*/
-/*.file-data{*/
-/*    cursor: pointer;*/
-/*    transition: background-color 0.3ms ease;*/
-/*}*/
-/*.file-data:hover{*/
-/*    background-color: lightgray;*/
-/*}*/
-/*.file-data:active {*/
-/*    background-color: #e0e0e0;*/
-/*}*/

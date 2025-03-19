@@ -1,16 +1,15 @@
 /* Modal trigger button */
 .modal-trigger {
     cursor: pointer;
-    padding: 8px 16px;
     width: 100%;
     text-align: left;
 }
 
 .modal-trigger:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    /*background-color: rgba(0, 0, 0, 0.05);*/
 }
 
-/* Modal overlay - 遮罩层 */
+/* Modal overlay  */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -24,7 +23,7 @@
     z-index: 9999;
 }
 
-/* Modal container - 白色容器 */
+/* Modal container */
 .modal-container {
     background-color: white;
     border-radius: 8px;

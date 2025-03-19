@@ -25,10 +25,8 @@ public class DocumentWebSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         Map<String, Object> data = objectMapper.readValue(message.getPayload(), Map.class);
-        System.out.println("message.payload()"+message.getPayload());
         String documentId = (String) data.get("documentId");
         String userId = (String) data.get("userId");
-        System.out.println("documentId: " + documentId + ", userId: " + userId);
         String type = (String) data.get("type");
 
         broadcastToDocument(documentId, message.getPayload(), userId);

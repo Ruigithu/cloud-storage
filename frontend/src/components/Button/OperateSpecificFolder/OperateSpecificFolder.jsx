@@ -6,14 +6,13 @@ const OperateSpecificFolder = ({ folder, userId }) => {
     const menuRef = useRef(null);
     const buttonRef = useRef(null);
 
-    // 点击按钮显示/隐藏菜单
+
     const handleButtonClick = (e) => {
-        e.stopPropagation(); // 阻止事件冒泡
+        e.stopPropagation();
         console.log("Button clicked");
         setIsMenuVisible(!isMenuVisible);
     };
 
-    // 点击外部关闭菜单
     const handleClickOutside = (e) => {
         if (menuRef.current &&
             !menuRef.current.contains(e.target) &&
@@ -65,7 +64,7 @@ const OperateSpecificFolder = ({ folder, userId }) => {
                 link.remove();
                 window.URL.revokeObjectURL(url);
             } else {
-                console.error('文件夹下载失败');
+                console.error('fail downloading file');
             }
         } catch (error) {
             console.error('Error downloading folder:', error);
@@ -74,7 +73,6 @@ const OperateSpecificFolder = ({ folder, userId }) => {
 
     return (
         <div className="operate-file-menu-container">
-            {/* 触发按钮 */}
             <i
                 className="fa-solid fa-ellipsis more"
                 style={{color: '#bcbdbd'}}
@@ -82,7 +80,6 @@ const OperateSpecificFolder = ({ folder, userId }) => {
                 onClick={handleButtonClick}
             />
 
-            {/* 下拉菜单 */}
             {isMenuVisible && (
                 <div ref={menuRef} className="menu-container">
                     <ul className="menu-list">

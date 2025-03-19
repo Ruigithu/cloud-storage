@@ -27,7 +27,7 @@ function UploadFile({ onFileUploadSuccess,ownerId,folderId }) {
                 alert('File uploaded successfully');
                 console.log(response.json())
                 if (onFileUploadSuccess) {
-                    onFileUploadSuccess();  // 调用父组件的回调函数
+                    onFileUploadSuccess();
                 }
             } else {
 

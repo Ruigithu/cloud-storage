@@ -11,14 +11,14 @@ const ShareHandler = () => {
 
 
     useEffect(() => {
-        if (hasCheckedShare.current) return; // 避免重复调用
+        if (hasCheckedShare.current) return; // avoid repeating calling
         hasCheckedShare.current = true;
         const checkShare = async () => {
             try {
                 console.log(`hhhhh`);
                 console.log(localStorage.getItem('userId'));
                 const userId = localStorage.getItem('userId');
-                // 只有当userId有值且不是字符串"null"时才添加userId参数
+                // only adding userId when it has value and not "null"
                 let url = `${process.env.REACT_APP_API_URL}/share/${shareId}`;
                 if (userId && userId !== "null") {
                     url += `?userId=${userId}`;
@@ -54,10 +54,9 @@ const ShareHandler = () => {
                 const data = await response.json();
                 const { type, fileId, fileName, filePath } = data;
 
-                // 根据后端返回的type类型处理
+
                 if (type === 'READ') {
                     try {
-                        // 使用fileId进行下载
                         const downloadResponse = await fetch(
                             `${process.env.REACT_APP_API_URL}/download?fileId=${fileId}`,
                             {
@@ -86,8 +85,6 @@ const ShareHandler = () => {
                         setError('Failed to download file');
                     }
                 } else if (type === 'WRITE') {
-                    // 由于后端已经根据userId是否存在处理了权限，
-                    // 如果返回WRITE类型，则直接处理保存逻辑
 
                     try {
 

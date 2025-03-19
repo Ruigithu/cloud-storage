@@ -45,8 +45,6 @@ public class FileController {
 
 
 
-
-
     public FileController(FileService fileService, File file , FileStorageConfig storage, FilePermission filePermission, User user, FileVersionMapper fileVersionMapper, FolderService folderService) {
         this.fileService = fileService;
         this.file = file;
@@ -69,12 +67,10 @@ public class FileController {
             @RequestParam("folderId") Long folderId) {
 
         try {
-            // 检查文件是否为空
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body("Please select a file to upload");
             }
 
-            // 调用服务层处理文件上传逻辑
             File newVersion = fileService.uploadNewVersion(file, ownerId, folderId);
 
             return ResponseEntity.ok(newVersion);
@@ -89,9 +85,6 @@ public class FileController {
 
     @GetMapping("/getAllFiles")
     public ResponseEntity<List<File>> getAllFiles(@RequestParam long folderId,@RequestParam long ownerId) {
-        System.out.println("请求所有的files"+"ownerId是："+ownerId+"folderId是："+folderId);
-        System.out.println();
-        System.out.println(System.getProperty("java.io.tmpdir"));
         if (folderId==-1){
             folderId=0;
         }
@@ -108,8 +101,6 @@ public class FileController {
 
     @PostMapping("/upload")
     public ResponseEntity<File> uploadFile(@RequestParam("file") MultipartFile uploadFile,@RequestParam("userId")long ownerId,@RequestParam("folderId")long folderId) throws IOException {
-        System.out.println("开始上传文件"+"上传文件folderId是"+folderId);
-        System.out.println();
         if (folderId==-1){
             folderId=0;
         }
@@ -119,9 +110,7 @@ public class FileController {
     }
     @DeleteMapping("/deleteFile")
     public ResponseEntity<?> deleteFile(@RequestParam long fileId,@RequestParam long userId) throws IOException {
-        System.out.println("进入deleteFileController");
-        System.out.println("controller fileId:"+fileId);
-        System.out.println("controller userId:"+userId);
+
         int i = fileService.deleteFile(fileId, userId);
         if (i>0){
             return ResponseEntity.ok().build();
@@ -132,7 +121,6 @@ public class FileController {
 
     @DeleteMapping("/softDeleteFile")
     public ResponseEntity<?> softDeleteFile(@RequestParam long fileId,@RequestParam long userId) throws IOException {
-        System.out.println("进入softDeleteFileController");
         int i = fileService.softDeleteFile(fileId, userId);
         if (i>0){
             return ResponseEntity.ok().build();
@@ -142,23 +130,17 @@ public class FileController {
 
     @GetMapping("/getAllDeletedFiles")
     public ResponseEntity<List<File>> getAllDeletedFiles(@RequestParam long ownerId,@RequestParam long folderId) {
-        System.out.println("请求所有的files "+"ownerId是："+ownerId+"folderId是："+folderId);
-        System.out.println();
+
         if (folderId==-1){
             folderId=0;
         }
         List<File> files = fileService.getAllDeletedFiles(ownerId,folderId);
-        System.out.println("已删除的文件有 "+files.size()+" 个");
-        for (File file :files){
-            System.out.println("得到的已经删除的文件名字有："+file.getName());
-        }
 
         return ResponseEntity.ok().body(files);
     }
 
     @PostMapping("/restoreFile")
     public ResponseEntity<?>restoreFile(@RequestParam long fileId,@RequestParam long ownerId) {
-        System.out.println("恢复的文件 fileId:"+fileId+"ownerId:"+ownerId);
         int i = fileService.restoreFile(fileId, ownerId);
 
         if (i>0){
@@ -181,30 +163,28 @@ public class FileController {
                     "attachment; filename=\"" + URLEncoder.encode(downloadInfo.getFileName(), "UTF-8") + "\"")
                 .body(downloadInfo.getResource());
         } catch (Exception e) {
-            throw new RuntimeException("文件下载失败: " + e.getMessage());
+            throw new RuntimeException("fail downloading file " + e.getMessage());
         }
     }
 
     @PostMapping("/convert-doc")
     public ResponseEntity<?> convertDoc(@RequestParam("file") MultipartFile file) {
         try {
-            // 使用 Apache POI 读取 doc/docx 文件
+            //  Apache POI
             XWPFDocument document;
             if (file.getOriginalFilename().endsWith(".docx")) {
                 document = new XWPFDocument(file.getInputStream());
             } else {
                 HWPFDocument doc = new HWPFDocument(file.getInputStream());
-                // 转换 doc 文件内容
                 return ResponseEntity.ok(doc.getDocumentText());
             }
 
-            // 提取文本内容
+
             StringBuilder text = new StringBuilder();
             for (XWPFParagraph paragraph : document.getParagraphs()) {
                 text.append(paragraph.getText()).append("\n");
             }
 
-            // 返回转换后的内容
             return ResponseEntity.ok(text.toString());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

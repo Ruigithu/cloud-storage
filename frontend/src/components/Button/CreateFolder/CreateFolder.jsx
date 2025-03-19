@@ -20,7 +20,7 @@ function CreateFolder({parentId,userId,onFileUploadSuccess}){
         if (response.ok) {
             alert('Folder created successfully');
             if (onFileUploadSuccess) {
-                onFileUploadSuccess();  // 调用父组件的回调函数
+                onFileUploadSuccess();
             }
         } else {
             console.error('failed');

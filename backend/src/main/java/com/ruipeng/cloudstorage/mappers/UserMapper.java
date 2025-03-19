@@ -7,7 +7,6 @@ import org.apache.ibatis.annotations.*;
 @Mapper
 public interface UserMapper {
 
-    // 通过 email 查找用户
     @Select("SELECT * FROM users WHERE email = #{email}")
     @Results({
             @Result(property = "id", column = "id"),
@@ -19,7 +18,7 @@ public interface UserMapper {
     })
     User findByEmail(String email);
 
-    // 插入新用户
+
     @Insert("INSERT INTO users (email, password_hash, name) " +
             "VALUES (#{email}, #{passwordHash}, #{name})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

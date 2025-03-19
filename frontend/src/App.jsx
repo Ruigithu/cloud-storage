@@ -4,7 +4,6 @@ import Home from "./pages/Home/home";
 import Login from "./pages/Login/login"
 import Signup from "./pages/Signup/signup";
 import MyShared from "./components/SideBar/SideBarNav/MySharred/MyShared";
-import Collaboration from "./components/SideBar/SideBarNav/Collaboration/Collaboration";
 import Bin from "./components/SideBar/SideBarNav/Bin/Bin";
 import EditorPage from "./components/Tool/QuillEditor/EditPage";
 import ShareHandler from "./pages/Share/ShareHandler";
@@ -18,7 +17,6 @@ import ShareCanceled from "./pages/Share/ShareCanceled";
              <Route path="/signup" element={<Signup/>}/>
              <Route path='' element={<Login/>}/>
              <Route path="/my-shared" element={<MyShared />} />
-             <Route path="/collaboration" element={<Collaboration />} />
              <Route path="/bin" element={<Bin />} />
              <Route path="/editor/:fileId" element={<EditorPage/>}/>
              <Route path="/share/:shareId" element={<ShareHandler/>}/>

@@ -7,14 +7,12 @@ const CreateFolderDialog = ({ onCreateFolder }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // 新增：重置所有状态的函数
     const resetModal = () => {
         setFolderName('');
         setError('');
         setIsLoading(false);
     };
 
-    // 修改：关闭模态框时调用重置函数
     const handleCloseModal = () => {
         setShowModal(false);
         resetModal();
@@ -29,7 +27,7 @@ const CreateFolderDialog = ({ onCreateFolder }) => {
 
             await onCreateFolder(folderName.trim());
             setFolderName('');
-            handleCloseModal(); // 使用新的关闭函数
+            handleCloseModal();
         } catch (error) {
             setError('Failed to create folder. Please try again.');
         } finally {
@@ -53,7 +51,7 @@ const CreateFolderDialog = ({ onCreateFolder }) => {
                         onClick={e => e.stopPropagation()}
                     >
                         <div className="modal-content">
-                            <h2 className="modal-title">Create New Folder</h2>
+                            <p className="modal-title">Create New Folder</p>
 
                             <form onSubmit={handleSubmit} className="form-container">
                                 <input
@@ -72,7 +70,7 @@ const CreateFolderDialog = ({ onCreateFolder }) => {
                                 <div className="button-container">
                                     <button
                                         type="button"
-                                        onClick={handleCloseModal} // 使用新的关闭函数
+                                        onClick={handleCloseModal}
                                         className="cancel-button"
                                         disabled={isLoading}
                                     >

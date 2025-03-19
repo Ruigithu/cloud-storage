@@ -1,11 +1,11 @@
 .add-new-menu-container {
-        position: relative;
-        display: inline-block;
+    width: 300px;
+    position: relative;
 }
 .menu-container{
     position: absolute;
-    top:140%;
-    width: 130px;
+    display:flex;
+    flex-direction: column;
     background-color: white;
     border-radius: 6px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
@@ -13,11 +13,17 @@
     z-index: 1000;
     border: 1px solid #E5E7EB;
 }
-
+.add-new-button{
+    background-color: #4F8A8B;
+    color: #dddddd;
+    border: 0;
+    height: 30px;
+    border-radius: 10px;
+}
 .menu-list{
-    list-style-type: none;
+    font-size: 14px;
     border-radius: 5px;
-    padding: 5px;
+    text-align: left;
 }
 .create-new{
     cursor: pointer;

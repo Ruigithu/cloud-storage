@@ -52,7 +52,7 @@ const QuillEditor = ({ documentId, userId }) => {
                 ['link', 'image']
             ];
 
-            // 初始化 Quill
+            // initializing Quill
             quillRef.current = new Quill(editorRef.current, {
                 modules: {
                     toolbar: toolbarOptions,
@@ -63,7 +63,7 @@ const QuillEditor = ({ documentId, userId }) => {
                     }
                 },
                 theme: 'snow',
-                placeholder: '开始编辑文档...',
+                placeholder: 'start editing the file...',
             });
         }
 
@@ -74,7 +74,7 @@ const QuillEditor = ({ documentId, userId }) => {
 
         newSocket.onopen = () => {
             console.log("Connected to WebSocket");
-            // 加入文档
+            // add file
             newSocket.send(JSON.stringify({
                 type: 'joinDocument',
                 documentId,
@@ -95,7 +95,7 @@ const QuillEditor = ({ documentId, userId }) => {
 
                 if (type === 'text-change' && editingUserId !== userId) {
                     quillRef.current.updateContents(delta);
-                    // 其他用户的编辑也标记为有变更，需要保存
+                    // other user's mark
                     contentChangeRef.current = true;
                 }
 
@@ -115,11 +115,11 @@ const QuillEditor = ({ documentId, userId }) => {
             }
         };
 
-        // 监听内容变化
+        // listen the changes of the content
         if (quillRef.current) {
             quillRef.current.on('text-change', (delta, oldDelta, source) => {
                 if (source === 'user') {
-                    // 发送到WebSocket
+                    // send to WebSocket
                     newSocket.send(JSON.stringify({
                         type: 'text-change',
                         delta,
@@ -127,7 +127,7 @@ const QuillEditor = ({ documentId, userId }) => {
                         userId
                     }));
 
-                    // 标记有内容变更，需要保存
+                    // save the content change
                     contentChangeRef.current = true;
                 }
             });
@@ -164,21 +164,21 @@ const QuillEditor = ({ documentId, userId }) => {
 
                 const contentType = response.headers.get('content-type');
 
-                // 对于Word文档和文本文件，后端会返回JSON格式的文本内容
+                // for Word and text, the backend will send back the content in JSON form
                 if (contentType && contentType.includes('application/json')) {
                     const textContent = await response.text();
                     if (quillRef.current) {
-                        quillRef.current.setText(''); // 清空编辑器
+                        quillRef.current.setText(''); // clean the editor
                         quillRef.current.insertText(0, textContent);
                     }
                 } else if (contentType && contentType.startsWith('image/')) {
-                    // 处理图片
+                    // handle the image
                     const blob = await response.blob();
                     const url = URL.createObjectURL(blob);
                     setImageUrl(url);
                     setIsImage(true);
                 } else {
-                    // 处理其他二进制文件（提供下载）
+                    // download file
                     const blob = await response.blob();
                     const url = URL.createObjectURL(blob);
                     const contentDisposition = response.headers.get('content-disposition');
@@ -202,11 +202,11 @@ const QuillEditor = ({ documentId, userId }) => {
             } catch (error) {
                 console.error('Error loading document:', error);
                 if (quillRef.current) {
-                    quillRef.current.setText('文档加载失败，请重试');
+                    quillRef.current.setText('fail loading，try again');
                 }
             } finally {
                 setLoading(false);
-                // 重置内容变更标记
+                // reset the content change mark
                 contentChangeRef.current = false;
             }
         };
@@ -214,32 +214,32 @@ const QuillEditor = ({ documentId, userId }) => {
         loadDocument();
     }, [documentId, userId]);
 
-    // 保存文档的函数
+    // save document
     const saveDocument = async () => {
         if (isImage || !quillRef.current || saving) return;
 
-        // 如果没有内容变更，不需要保存
+        // no content change, skip saving
         if (!contentChangeRef.current) {
-            console.log('文档没有变更，跳过保存');
+            console.log('no change, skip saving');
             return;
         }
 
         try {
             setSaving(true);
 
-            // 获取内容
+            // get the content
             const content = quillRef.current.getText();
-            // 如果需要保存富文本内容，可以使用：
+            // for Rich Text Content
             // const content = JSON.stringify(quillRef.current.getContents());
 
-            // 创建FormData对象模拟文件上传
+            // mocking uploading file
             const blob = new Blob([content], { type: 'text/plain' });
             const file = new File([blob], `document_${documentId}.txt`, { type: 'text/plain' });
 
             const formData = new FormData();
             formData.append('file', file);
             formData.append('ownerId', userId);
-            formData.append('folderId', documentId); // 使用documentId作为folderId，根据需要调整
+            formData.append('folderId', documentId);
 
             const response = await fetch(
                 `${process.env.REACT_APP_API_URL}/uploadNewFile`,
@@ -251,19 +251,18 @@ const QuillEditor = ({ documentId, userId }) => {
             );
 
             if (!response.ok) {
-                throw new Error(`保存失败: ${response.status}`);
+                throw new Error(`fail saving: ${response.status}`);
             }
 
             const now = new Date();
             setLastSaved(now);
-            // 重置内容变更标记
             contentChangeRef.current = false;
-            // 更新保存次数
+            // the time of saving
             setSaveCount(prev => prev + 1);
             console.log('Document saved successfully', now);
         } catch (error) {
             console.error('Error saving document:', error);
-            alert('保存文档失败，请重试');
+            alert('fail saving, please try again');
         } finally {
             setSaving(false);
         }
@@ -275,18 +274,18 @@ const QuillEditor = ({ documentId, userId }) => {
             if (contentChangeRef.current) {
                 saveDocument();
             }
-        }, 1000), // 1秒延迟
+        }, 1000),
         [documentId, userId]
     );
 
-    // 启用/禁用自动保存
+    // start/forbid automatically save
     useEffect(() => {
         if (autoSaveEnabled && !isImage) {
             autoSaveIntervalRef.current = setInterval(() => {
                 if (contentChangeRef.current) {
                     saveDocument();
                 }
-            }, 120000); // 每2分钟检查一次是否需要自动保存
+            }, 120000); // every two minutes check if it needs to save automatically
         } else if (autoSaveIntervalRef.current) {
             clearInterval(autoSaveIntervalRef.current);
         }
@@ -298,11 +297,10 @@ const QuillEditor = ({ documentId, userId }) => {
         };
     }, [autoSaveEnabled, isImage, saveDocument]);
 
-    // 添加离开页面前的保存
+    // save before  leave
     useEffect(() => {
         const handleBeforeUnload = (e) => {
             if (contentChangeRef.current) {
-                // 同步保存文档
                 const saveBeforeLeave = async () => {
                     try {
                         await saveDocument();
@@ -313,9 +311,9 @@ const QuillEditor = ({ documentId, userId }) => {
 
                 saveBeforeLeave();
 
-                // 显示确认对话框
+                // show the confirming dialog
                 e.preventDefault();
-                e.returnValue = '文档有未保存的更改，确定要离开吗？';
+                e.returnValue = 'Save the changes？';
                 return e.returnValue;
             }
         };
@@ -326,13 +324,13 @@ const QuillEditor = ({ documentId, userId }) => {
         };
     }, [saveDocument]);
 
-    // 格式化最后保存时间
+
     const formatLastSaved = () => {
-        if (!lastSaved) return '尚未保存';
-        return `上次保存: ${lastSaved.toLocaleTimeString()}`;
+        if (!lastSaved) return 'not saved yet';
+        return `last saved: ${lastSaved.toLocaleTimeString()}`;
     };
 
-    // 切换自动保存
+    //
     const toggleAutoSave = () => {
         setAutoSaveEnabled(!autoSaveEnabled);
     };
@@ -345,11 +343,11 @@ const QuillEditor = ({ documentId, userId }) => {
                     onClick={saveDocument}
                     disabled={saving || isImage || !contentChangeRef.current}
                 >
-                    {saving ? '保存中...' : '保存'}
+                    {saving ? 'saving...' : 'save'}
                 </button>
                 <div className="save-status">
                     <span>{formatLastSaved()}</span>
-                    {saveCount > 0 && <span className="save-count">（已保存{saveCount}次）</span>}
+                    {saveCount > 0 && <span className="save-count">( have been saved for {saveCount} times )</span>}
                 </div>
                 <div className="auto-save-toggle">
                     <label className="auto-save-label">
@@ -359,20 +357,20 @@ const QuillEditor = ({ documentId, userId }) => {
                             onChange={toggleAutoSave}
                             disabled={isImage}
                         />
-                        自动保存
+                        automatically save
                     </label>
                 </div>
                 {contentChangeRef.current && (
                     <div className="unsaved-indicator">
                         <span className="unsaved-dot"></span>
-                        有未保存的更改
+                        not saved yet
                     </div>
                 )}
             </div>
             <div className="flex-grow relative">
                 {loading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 z-10">
-                        <div className="text-gray-600">加载中...</div>
+                        <div className="text-gray-600">loading...</div>
                     </div>
                 )}
                 {isImage ? (
@@ -386,211 +384,3 @@ const QuillEditor = ({ documentId, userId }) => {
 };
 
 export default QuillEditor;
-// import React, { useEffect, useRef, useState } from 'react';
-// import Quill from 'quill';
-// import 'quill/dist/quill.snow.css';
-// import './QuillEditor.css'
-// import SockJS from 'sockjs-client';
-//
-// const QuillEditor = ({ documentId, userId }) => {
-//     const editorRef = useRef(null);
-//     const quillRef = useRef(null);
-//     const [socket, setSocket] = useState(null);
-//     const [activeUsers, setActiveUsers] = useState(new Set());
-//     const [isImage, setIsImage] = useState(false);
-//     const [imageUrl, setImageUrl] = useState('');
-//     const [loading, setLoading] = useState(false);
-//
-//     useEffect(() => {
-//
-//         if (!quillRef.current) {
-//             const toolbarOptions = [
-//                 ['bold', 'italic', 'underline', 'strike'],
-//                 ['blockquote', 'code-block'],
-//                 [{'header': 1}, {'header': 2}],
-//                 [{'list': 'ordered'}, {'list': 'bullet'}],
-//                 [{'script': 'sub'}, {'script': 'super'}],
-//                 [{'indent': '-1'}, {'indent': '+1'}],
-//                 [{'direction': 'rtl'}],
-//                 [{'size': ['small', false, 'large', 'huge']}],
-//                 [{'header': [1, 2, 3, 4, 5, 6, false]}],
-//                 [{'color': []}, {'background': []}],
-//                 [{'font': []}],
-//                 [{'align': []}],
-//                 ['clean'],
-//                 ['link', 'image']
-//             ];
-//
-//             // 初始化 Quill
-//             quillRef.current = new Quill(editorRef.current, {
-//                 modules: {
-//                     toolbar: toolbarOptions,
-//                     history: {
-//                         delay: 2000,
-//                         maxStack: 500,
-//                         userOnly: true
-//                     }
-//                 },
-//                 theme: 'snow',
-//                 placeholder: '开始编辑文档...',
-//             });
-//         }
-//
-//
-//         const newSocket = new SockJS(`${process.env.REACT_APP_API_URL}/ws/document?userId=${userId}&documentId=${documentId}`, null, {
-//             transports: ['websocket'],
-//             withCredentials: true
-//         });
-//
-//             newSocket.onopen = () => {
-//                 console.log("Connected to WebSocket");
-//                 // 加入文档
-//                 newSocket.send(JSON.stringify({
-//                     type: 'joinDocument',
-//                     documentId,
-//                     userId
-//                 }));
-//             };
-//
-//             newSocket.onmessage = (event) => {
-//                 try {
-//                     console.log("Raw event data:", event.data);
-//                     const parsedData = JSON.parse(event.data);
-//                     console.log("Parsed event data:", parsedData);
-//
-//                     const { type, userId: editingUserId, delta } = parsedData;
-//
-//                     // 后续处理逻辑
-//
-//                 console.log("Event data: ", event.data); // 检查 event.data 内容
-//                 console.log(`传回的user是：`+editingUserId);
-//
-//                 if (type === 'text-change' && editingUserId !== userId) {
-//                     quillRef.current.updateContents(delta);
-//                 }
-//
-//                 if (type === 'userJoined') {
-//                     setActiveUsers(prev => new Set([...prev,editingUserId]));
-//                 }
-//
-//                 if (type === 'userLeft') {
-//                     setActiveUsers(prev => {
-//                         const newUsers = new Set(prev);
-//                         newUsers.delete(editingUserId);
-//                         return newUsers;
-//                     });
-//                 }
-//                 } catch (error) {
-//                     console.error("Message parsing error:", error);
-//                 }
-//             };
-//
-//             quillRef.current.on('text-change', (delta, oldDelta, source) => {
-//                 if (source === 'user') {
-//                     newSocket.send(JSON.stringify({
-//                         type: 'text-change',
-//                         delta,
-//                         documentId,
-//                         userId
-//                     }));
-//                 }
-//             });
-//
-//             return () => {
-//                 newSocket.close();
-//             };
-//         }, [documentId, userId]);
-//
-//
-//         useEffect(() => {
-//             const loadDocument = async () => {
-//                 try {
-//                     const response = await fetch(
-//                         `${process.env.REACT_APP_API_URL}/getFileByUserIdAndFileId?ownerId=${userId}&fileId=${documentId}`,
-//                         {
-//                             method: 'GET',
-//                             headers: {
-//                                 'Accept': 'application/json',
-//                                 'Content-Type': 'application/json',
-//                             },
-//                             credentials: 'include'
-//                         }
-//                     );
-//                     console.log('Response Status:', response.status);
-//                     console.log('Content-Type:', response.headers.get('content-type'))
-//                     if (!response.ok) {
-//                         throw new Error(`Server responded with status ${response.status}`);
-//                     }
-//
-//                     const contentType = response.headers.get('content-type');
-//
-//
-//                     // 对于Word文档和文本文件，后端会返回JSON格式的文本内容
-//                     if (contentType && contentType.includes('application/json')) {
-//                         const textContent = await response.text();
-//                         if (quillRef.current) {
-//                             quillRef.current.setText(''); // 清空编辑器
-//                             quillRef.current.insertText(0, textContent);
-//                         }
-//                     } else if (contentType.startsWith('image/')) {
-//                         // 处理图片
-//                         const blob = await response.blob();
-//                         const url = URL.createObjectURL(blob);
-//                         setImageUrl(url);
-//                         setIsImage(true);
-//                     } else {
-//                         // 处理其他二进制文件（提供下载）
-//                         const blob = await response.blob();
-//                         const url = URL.createObjectURL(blob);
-//                         const contentDisposition = response.headers.get('content-disposition');
-//                         let filename = 'document';
-//
-//                         if (contentDisposition) {
-//                             const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-//                             if (filenameMatch) {
-//                                 filename = filenameMatch[1];
-//                             }
-//                         }
-//
-//                         const link = document.createElement('a');
-//                         link.href = url;
-//                         link.download = filename;
-//                         document.body.appendChild(link);
-//                         link.click();
-//                         document.body.removeChild(link);
-//                         URL.revokeObjectURL(url);
-//                     }
-//                 } catch (error) {
-//                     console.error('Error loading document:', error);
-//                     if (quillRef.current) {
-//                         quillRef.current.setText('文档加载失败，请重试');
-//                     }
-//                 } finally {
-//                     setLoading(false);
-//                 }
-//             };
-//
-//             loadDocument();
-//         }, [documentId, userId]);
-//
-//
-//
-//     return (
-//         <div className="flex flex-col h-full">
-//             <div className="flex-grow relative">
-//                 {loading && (
-//                     <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 z-10">
-//                         <div className="text-gray-600">加载中...</div>
-//                     </div>
-//                 )}
-//                 {isImage ? (
-//                         <img src={imageUrl} alt="document" className="preview-img"/>
-//                 ) : (
-//                     <div ref={editorRef} className="h-full"/>
-//                 )}
-//             </div>
-//         </div>
-//     );
-// };
-//
-// export default QuillEditor;

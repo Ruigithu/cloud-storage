@@ -76,10 +76,10 @@ public interface FileMapper {
             "<foreach collection='collect' item='id' open='(' separator=',' close=')'>",
             "#{id}",
             "</foreach>",
-            "OR folder_id = #{folderId}",  // 同时查询当前文件夹的文件
+            "OR folder_id = #{folderId}",
             "</when>",
-            "<otherwise>",  // 如果 collect 列表为空
-            "folder_id = #{folderId}",  // 只查询当前文件夹的文件
+            "<otherwise>",
+            "folder_id = #{folderId}",
             "</otherwise>",
             "</choose>",
             "</script>"})

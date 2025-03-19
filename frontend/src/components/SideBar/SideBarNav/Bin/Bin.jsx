@@ -39,11 +39,7 @@ function Bin(){
 
             if (fileResponse.ok && folderResponse.ok) {
                 const [fileData, folderData] = await Promise.all([fileResponse.json(), folderResponse.json()]);
-                console.log("API返回的文件:", fileData);
-                console.log("当前文件夹ID:", rootFolderId);
-                console.log("匹配此文件夹的文件:", fileData.filter(file => String(file.folderId) === String(rootFolderId)));
-                // Check that IDs are unique between files and folders
-                // Create a map to track seen IDs
+
                 const seenIds = new Map();
 
                 // Process folders first
@@ -93,25 +89,25 @@ function Bin(){
     }, [rootFolderId, actualUserId]);
 
     const getFileIcon = (fileType) => {
-        if (fileType.startsWith("image/")) return "fa-regular fa-image"; // 图片
-        if (fileType.startsWith("video/")) return "fa-regular fa-file-video"; // 视频
-        if (fileType.startsWith("audio/")) return "fa-regular fa-file-audio"; // 音频
+        if (fileType.startsWith("image/")) return "fa-regular fa-image"; // img
+        if (fileType.startsWith("video/")) return "fa-regular fa-file-video"; // video
+        if (fileType.startsWith("audio/")) return "fa-regular fa-file-audio"; // audio
         if (fileType === "application/pdf") return "fa-regular fa-file-pdf"; // PDF
-        if (fileType.includes("word")) return "fa-regular fa-file-word"; // Word 文档
-        if (fileType.includes("excel")) return "fa-regular fa-file-excel"; // Excel 文件
+        if (fileType.includes("word")) return "fa-regular fa-file-word"; // Word
+        if (fileType.includes("excel")) return "fa-regular fa-file-excel"; // Excel
         if (fileType.includes("powerpoint")) return "fa-regular fa-file-powerpoint"; // PPT
         return "fa-regular fa-file";
     };
 
     const fileIcons = {
-        "fa-regular fa-image": "#007cdb",  // 蓝色（图片）
-        "fa-regular fa-file-video":"#ff4500", // 橙色（视频）
-        "fa-regular fa-file-audio":"#32cd32", // 绿色（音频）
-        "fa-regular fa-file-pdf":"#ff0000", // 红色（PDF）
-        "fa-regular fa-file-word":"#2b579a", // 深蓝色（Word）
-        "fa-regular fa-file-excel":"#217346", // 绿色（Excel）
-        "fa-regular fa-file-powerpoint": "#d24726", // 深橙色（PPT）
-        "fa-regular fa-file":"#808080", // 灰色（默认）
+        "fa-regular fa-image": "#007cdb",  // blue（img）
+        "fa-regular fa-file-video":"#ff4500", // orange（video）
+        "fa-regular fa-file-audio":"#32cd32", // green（audio）
+        "fa-regular fa-file-pdf":"#ff0000", // red（PDF）
+        "fa-regular fa-file-word":"#2b579a", // dark blue（Word）
+        "fa-regular fa-file-excel":"#217346", // green（Excel）
+        "fa-regular fa-file-powerpoint": "#d24726", // dark orange（PPT）
+        "fa-regular fa-file":"#808080", // gray（default）
     };
 
     const handleFolderClick = (folderId, folderName) => {
@@ -184,9 +180,6 @@ function Bin(){
                                     </span>
                                 ))}
                             </div>
-                        </div>
-                        <div className="main-button">
-                            <button type="button">Change View</button>
                         </div>
 
                     </div>

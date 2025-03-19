@@ -57,7 +57,7 @@ function ShareFileDialog({ fileId }) {
 
             if (response.ok) {
                 const data = await response.json();
-                setShareLink(data.shareLink || ''); // 假设后端返回 shareLink
+                setShareLink(data.shareLink || '');
             } else {
                 console.error('Share creation failed');
             }

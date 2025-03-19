@@ -14,8 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,7 +38,6 @@ public class ShareService {
     @Value("${frontend.url}")
     private String frontendUrl;
 
-
     @Autowired
     public ShareService(ShareMapper shareMapper, FileMapper fileMapper, FileVersionMapper fileVersionMapper, FileService fileService, FolderMapper folderMapper, FolderService folderService) {
         this.shareMapper = shareMapper;
@@ -52,145 +49,137 @@ public class ShareService {
     }
 
     public ShareResponse createShare(Long fileId, Long createdBy, String accessType, String expiresAt) {
-        // 验证文件存在且用户有权限
-        System.out.println("执行到1");
+        // Verify that the file exists and the user has permission
+        System.out.println("Step 1");
         File file = fileMapper.findByIdAndUserIdWithAdminPermission(fileId, createdBy);
-        System.out.println("执行到2");
+        System.out.println("Step 2");
         if (file == null) {
             throw new RuntimeException("File not found or no permission");
         }
 
-        // 创建分享记录
-        System.out.println("执行到3");
+        // Create a share record
+        System.out.println("Step 3");
         Share share = new Share();
-        System.out.println("share:"+share.getId()+","+share.getCreatedAt()+","+share.isActive());
+        System.out.println("share:" + share.getId() + "," + share.getCreatedAt() + "," + share.isActive());
         share.setFileId(fileId);
-        System.out.println("插完fileId");
+        System.out.println("FileId set");
         share.setCreatedBy(createdBy);
-        System.out.println("插完createdBy");
+        System.out.println("CreatedBy set");
         if (Objects.equals(accessType, "read")) {
             share.setAccessType(PermissionType.READ);
-        }else {
+        } else {
             share.setAccessType(PermissionType.WRITE);
         }
-        System.out.println("插完accessType");
-        System.out.println(expiresAt+"是什么");
+        System.out.println("AccessType set");
+        System.out.println(expiresAt + " value");
 
         if (expiresAt != null) {
             share.setExpiresAt(OffsetDateTime.parse(expiresAt));
         }
 
-        System.out.println("share:"+share.getFileId()+" "+share.getCreatedBy()+" "+share.getAccessType()+" "+share.getExpiresAt());
-        System.out.println("shareId:"+share.getId().getClass());
+        System.out.println("share:" + share.getFileId() + " " + share.getCreatedBy() + " " + share.getAccessType() + " " + share.getExpiresAt());
+        System.out.println("shareId:" + share.getId().getClass());
         try {
             shareMapper.insert(share);
         } catch (Exception e) {
-            e.printStackTrace(); // 打印具体错误信息
+            e.printStackTrace(); // Print specific error information
         }
-        System.out.println("执行到4");
+        System.out.println("Step 4");
 
-        // 生成分享链接
-        String shareLink = String.format("%s/share/%s",
-                frontendUrl,
-                share.getId());
-        System.out.println(shareLink+" 执行到5");
+        // Generate a share link
+        String shareLink = String.format("%s/share/%s", frontendUrl, share.getId());
+        System.out.println(shareLink + " Step 5");
 
         ShareResponse response = new ShareResponse();
         response.setShareLink(shareLink);
         return response;
     }
 
-
-
     public ShareInfoResponse getShareInfo(UUID shareId, Long userId) {
-        System.out.println("执行到1");
+        System.out.println("Step 1");
         Share share = null;
         try {
             share = shareMapper.findById(shareId);
         } catch (Exception e) {
-            System.out.println("数据库查询发生异常：");
-            e.printStackTrace();  // 打印完整堆栈信息
+            System.out.println("Database query exception:");
+            e.printStackTrace();  // Print full stack trace
             throw new RuntimeException("Failed to find share");
         }
 
-        System.out.println("执行到2");
+        System.out.println("Step 2");
         if (share == null) {
             throw new RuntimeException("Share not found");
         }
 
-        System.out.println("执行到3");
+        System.out.println("Step 3");
         File file = fileMapper.getFileById(share.getFileId());
         if (file == null) {
             throw new RuntimeException("File not found");
         }
 
-        System.out.println("执行到4");
+        System.out.println("Step 4");
         ShareInfoResponse response = new ShareInfoResponse();
 
-        // 修改这里的逻辑，保持与前端一致
-        // 前端期望根据 type 值来决定是下载还是保存共享文件
-        response.setType(share.getAccessType()); // 直接使用分享时设置的权限类型
+        // Ensure logic matches frontend expectations
+        // The frontend determines whether to download or save the shared file based on the "type" value
+        response.setType(share.getAccessType()); // Use the access type set at sharing
         response.setFileName(file.getName());
         response.setFilePath(fileVersionMapper.getVersionByFileId(file.getId()).getStoragePath());
         response.setFileId(file.getId());
 
-        System.out.println("执行到5");
+        System.out.println("Step 5");
         return response;
     }
 
     public Long saveSharedFile(UUID shareId, Long userId, Long rootFolderId) {
-        // 1. 验证分享和权限
+        // 1. Validate share and permissions
         Share share = shareMapper.findById(shareId);
-        System.out.println("执行到1");
+        System.out.println("Step 1");
         if (share == null || !PermissionType.WRITE.equals(share.getAccessType())) {
             throw new RuntimeException("Invalid share");
         }
-        System.out.println("执行到2");
-        // 2. 获取原始文件信息和最新版本
+        System.out.println("Step 2");
+
+        // 2. Retrieve original file information and latest version
         File originalFile = fileMapper.getFileById(share.getFileId());
-        System.out.println("执行到3");
+        System.out.println("Step 3");
         System.out.println(originalFile.getName());
         if (originalFile == null) {
             throw new RuntimeException("Original file not found");
         }
 
         FileVersion latestVersion = fileVersionMapper.getLatestVersion(originalFile.getId());
-        System.out.println("执行到4");
+        System.out.println("Step 4");
         if (latestVersion == null) {
             throw new RuntimeException("File version not found");
         }
-        System.out.println("执行到5");
+        System.out.println("Step 5");
         try {
-            // 3. 读取原始文件并创建MultipartFile
+            // 3. Read the original file and create a MultipartFile
             Path originalFilePath = Paths.get(latestVersion.getStoragePath());
             String contentType = Files.probeContentType(originalFilePath);
 
             MultipartFile multipartFile = new CustomMultipartFile(
-                    originalFile.getName(),    // 文件名
+                    originalFile.getName(),    // File name
                     originalFile.getName(),    // originalFilename
-                    contentType,              // content type
-                    Files.readAllBytes(originalFilePath)  // 文件内容
+                    contentType,               // Content type
+                    Files.readAllBytes(originalFilePath)  // File content
             );
 
-
-            // 5. 使用现有的uploadFile方法保存文件
-
+            // 5. Save the file using the existing uploadFile method
             File newFile = fileService.uploadFile(multipartFile, userId, rootFolderId);
-            System.out.println("执行到7");
+            System.out.println("Step 7");
             return newFile.getId();
-
         } catch (IOException e) {
             throw new RuntimeException("Failed to copy shared file: " + e.getMessage());
         }
     }
 
-
     public int cancelShare(UUID shareId, Long userId) {
-       return shareMapper.cancelShare(shareId,userId);
+        return shareMapper.cancelShare(shareId, userId);
     }
 
     public int restore(UUID shareId, Long userId) {
-        return shareMapper.restore(shareId,userId);
+        return shareMapper.restore(shareId, userId);
     }
 }
-

@@ -39,9 +39,8 @@ public class UserService {
 
     public long getUserId(String email){
         System.out.println(email);
-        System.out.println("进入getUserId");
         long userId = userMapper.getUserId(email);
-        System.out.println("userId是"+userId);
+        System.out.println("userId:"+userId);
         return userId;
     }
 

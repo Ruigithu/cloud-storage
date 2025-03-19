@@ -17,7 +17,6 @@ public class Share {
     private OffsetDateTime createdAt;
     private boolean active;
 
-    // 默认构造函数
     public Share() {
         this.id = UUID.randomUUID();
         this.createdAt = OffsetDateTime.now();
