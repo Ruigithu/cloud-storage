@@ -28,9 +28,7 @@ function Home() {
             if (response.ok) {
                 const userInfo = await response.json();
                 console.log(userInfo);
-                // 存储到 Redux
                 dispatch(setUserInfo(userInfo));
-                // 只存储 ID 到 localStorage（避免 undefined）
                 if (userInfo?.userId !== undefined && userInfo?.userName!==undefined) {
                     localStorage.setItem('userId', userInfo.userId);
                     localStorage.setItem(`${userInfo.userId}`,userInfo.userName);
