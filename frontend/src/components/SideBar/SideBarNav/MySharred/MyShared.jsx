@@ -3,6 +3,7 @@ import React, {useEffect, useState} from "react";
 import driveIcon from "../../../../assets/images/cloudversify-brands-solid.svg";
 import "./MyShared.css";
 import OperateSpecificSharedFile from "./OperateSpecificSharedFile/OperateSpecificSharedFile";
+import apiRequest from "../../../../utils/api";
 
 function MyShared(){
     const [shares, setShares] = useState([]);
@@ -11,7 +12,7 @@ function MyShared(){
     // 获取文件夹列表
     const fetchSharedFiles = async () => {
         try {
-            const response = await fetch(
+            const response = await apiRequest(
                 `${process.env.REACT_APP_API_URL}/getAllSharedFiles?ownerId=${actualUserId}`,
                 {
                     method: 'GET',

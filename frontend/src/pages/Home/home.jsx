@@ -1,13 +1,16 @@
-import driveIcon from "../../assets/images/cloudversify-brands-solid.svg";
+
 import React,{useState,useEffect} from "react";
+import {useDispatch } from 'react-redux';
+import {setUserInfo} from "../../components/Tool/UserInfo/userSlice";
+import {useNavigate} from "react-router-dom";
+import driveIcon from "../../assets/images/cloudversify-brands-solid.svg";
 import './home.css';
 import AddNewContextMenu     from "../../components/Button/AddNewContextMenu/AddNewContextMenu";
 import OperateSpecificFile from "../../components/Button/OperateSpecificFile/OperateSpecificFile";
 import Sidebar from "../../components/SideBar/SideBar";
-import {useDispatch } from 'react-redux';
-import {setUserInfo} from "../../components/Tool/UserInfo/userSlice";
 import OperateSpecificFolder from "../../components/Button/OperateSpecificFolder/OperateSpecificFolder";
-import {useNavigate} from "react-router-dom";
+import apiRequest from "../../utils/api";
+
 
 function Home() {
     const [files, setFiles] = useState([]);
@@ -20,14 +23,14 @@ function Home() {
     //get userid, restore it in localstorage
     const fetchUserId = async()=>{
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/getUserInfo`,
+            const response = await apiRequest(`${process.env.REACT_APP_API_URL}/getUserInfo`,
                 {
                     method: 'GET',
                     credentials: 'include',
                 });
             if (response.ok) {
                 const userInfo = await response.json();
-                console.log(userInfo);
+                console.log(userInfo+`haha`);
                 dispatch(setUserInfo(userInfo));
                 if (userInfo?.userId !== undefined && userInfo?.userName!==undefined) {
                     localStorage.setItem('userId', userInfo.userId);
@@ -51,40 +54,45 @@ function Home() {
     };
 
     // get  folders and files list
-    const fetchFoldersAndFiles = async () => {
+    const fetchFoldersAndFiles = async (userId = null) => {
         try {
+            const currentUserId = userId || actualUserId || localStorage.getItem('userId');
+
+            if (!currentUserId) {
+                console.error('No userId available for fetching folders and files');
+                return;
+            }
+
+
             // If rootFolderId is null, the API should return the user's root folder
             const endpoint = rootFolderId
-                ? `${process.env.REACT_APP_API_URL}/getAllFiles?folderId=${rootFolderId}&ownerId=${localStorage.getItem('userId')}`
-                : `${process.env.REACT_APP_API_URL}/getRootFiles?ownerId=${localStorage.getItem('userId')}`;
+                ? `${process.env.REACT_APP_API_URL}/getAllFiles?folderId=${rootFolderId}&ownerId=${currentUserId}`
+                : `${process.env.REACT_APP_API_URL}/getRootFiles?ownerId=${currentUserId}`;
 
             const [fileResponse, folderResponse] = await Promise.all([
-                fetch(endpoint, {
+                apiRequest(endpoint, {
                     method: 'GET',
-                    headers: { "Content-Type": "application/json" },
-                    credentials: 'include',
+                    headers: { "Content-Type": "application/json" }
                 }),
-                fetch(rootFolderId
-                    ? `${process.env.REACT_APP_API_URL}/getAllFolders?parentId=${rootFolderId}&userId=${localStorage.getItem('userId')}`
-                    : `${process.env.REACT_APP_API_URL}/getRootFolders?userId=${localStorage.getItem('userId')}`, {
+                apiRequest(rootFolderId
+                    ? `${process.env.REACT_APP_API_URL}/getAllFolders?parentId=${rootFolderId}&userId=${currentUserId}`
+                    : `${process.env.REACT_APP_API_URL}/getRootFolders?userId=${currentUserId}`, {
                     method: 'GET',
-                    headers: { "Content-Type": "application/json" },
-                    credentials: 'include',
+                    headers: { "Content-Type": "application/json" }
                 })
             ]);
 
-            if (fileResponse.ok && folderResponse.ok) {
+            if (fileResponse && folderResponse && fileResponse.ok && folderResponse.ok) {
                 const [fileData, folderData] = await Promise.all([fileResponse.json(), folderResponse.json()]);
 
                 // If this is the first load (rootFolderId is null), set the root folder ID
                 if (rootFolderId === null && folderData.rootFolderId) {
                     setRootFolderId(folderData.rootFolderId);
-                    localStorage.setItem('rootFolderId',folderData.rootFolderId);
-                    console.log(`进这里了吗`+localStorage.getItem('rootFolderId'));
+                    localStorage.setItem('rootFolderId', folderData.rootFolderId);
                     setNavigationPath([{ id: folderData.rootFolderId, name: 'root' }]);
                 }
 
-                setFiles(fileData);
+                setFiles(Array.isArray(fileData) ? fileData : (fileData.files || []));
                 setFolders(folderData.folders || folderData);
             }
         } catch (error) {
@@ -92,11 +100,8 @@ function Home() {
         }
     };
 
-
-    // get  folders and files list when component mounting
     useEffect(() => {
         fetchUserId();
-
     }, []);
 
     useEffect(() => {

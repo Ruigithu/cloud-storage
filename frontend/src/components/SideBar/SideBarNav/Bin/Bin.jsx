@@ -5,6 +5,7 @@ import "./Bin.css"
 import OperateSpecificDeletedFolder from "./OperateSpecificDeletedFolder/OperateSpecificDeletedFolder";
 import OperateSpecificDeletedFile from "./OperateSpecificDeletedFile/OperateSpecificDeletedFile";
 import {useNavigate} from "react-router-dom";
+import apiRequest from "../../../../utils/api";
 
 function Bin(){
     const [files, setFiles] = useState([]);
@@ -25,12 +26,12 @@ function Bin(){
     const fetchFoldersAndFiles = async () => {
         try {
             const [fileResponse, folderResponse] = await Promise.all([
-                fetch(`${process.env.REACT_APP_API_URL}/getAllDeletedFiles?folderId=${rootFolderId}&ownerId=${localStorage.getItem('userId')}`, {
+                apiRequest(`${process.env.REACT_APP_API_URL}/getAllDeletedFiles?folderId=${rootFolderId}&ownerId=${localStorage.getItem('userId')}`, {
                     method: 'GET',
                     headers: { "Content-Type": "application/json" },
                     credentials: 'include',
                 }),
-                fetch(`${process.env.REACT_APP_API_URL}/getAllDeletedFolders?parentId=${rootFolderId}&userId=${localStorage.getItem('userId')}`, {
+                apiRequest(`${process.env.REACT_APP_API_URL}/getAllDeletedFolders?parentId=${rootFolderId}&userId=${localStorage.getItem('userId')}`, {
                     method: 'GET',
                     headers: { "Content-Type": "application/json" },
                     credentials: 'include',

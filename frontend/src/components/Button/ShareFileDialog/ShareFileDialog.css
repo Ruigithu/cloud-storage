@@ -1,4 +1,4 @@
-.modal-overlay {
+.modal-overlay-share {
     position: fixed;
     top: 0;
     left: 0;
@@ -12,46 +12,45 @@
 }
 
 /* Modal container */
-.modal-container {
+.modal-container-share {
     background-color: white;
     border-radius: 8px;
-
-    max-width: 400px;
-    max-height: 250px;
+    width: 300px;
+    height: 400px;
     margin: auto;
 
 }
 
 /* Modal content */
-.modal-content {
+.modal-content-share {
     padding: 20px;
     align-items: center;
     display: flex;
     flex-direction: column;
 }
 
-.modal-header {
+.modal-header-share {
     font-size: 20px;
     font-weight: bold;
     margin-bottom: 20px;
 }
 
-.form-container {
+.form-container-share {
     display: flex;
     flex-direction: column;
 }
 
-.form-group {
+.form-group-share {
     margin-bottom: 15px;
 }
 
-.form-group label {
+.form-group-share label {
     font-size: 14px;
     margin-bottom: 5px;
 }
 
-.select-input,
-.text-input {
+.select-input-share,
+.text-input-share {
     width: 100%;
     padding: 8px;
     margin-top: 5px;
@@ -59,31 +58,31 @@
     border-radius: 4px;
 }
 
-.duration-container {
+.duration-container-share {
     display: flex;
     gap: 10px;
     align-items: center;
 }
 
-.button-container {
+.button-container-share {
     display: flex;
     justify-content: space-between;
 }
 
-.button-container button {
+.button-container-share button {
     padding: 10px;
     border-radius: 4px;
     cursor: pointer;
     width: 48%;
 }
 
-.submit-button {
+.submit-button-share {
     background-color: #007bff;
     color: white;
     border: none;
 }
 
-.cancel-button {
+.cancel-button-share {
     background-color: #f8f9fa;
     color: #007bff;
     border: 1px solid #ccc;

@@ -17,8 +17,9 @@ public class FileVersion {
     private Long createdBy;
     private Instant createdAt;
     private String comment;
+    private String uploadId;
 
-    public FileVersion(Long id, Long fileId, int versionNumber, String storagePath, Long size, Long createdBy, Instant createdAt, String comment) {
+    public FileVersion(Long id, Long fileId, int versionNumber, String storagePath, Long size, Long createdBy, Instant createdAt,String comment, String uploadId) {
         this.id = id;
         this.fileId = fileId;
         this.versionNumber = versionNumber;
@@ -27,6 +28,7 @@ public class FileVersion {
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.comment = comment;
+        this.uploadId = uploadId;
     }
 
     public FileVersion() {
@@ -94,6 +96,14 @@ public class FileVersion {
 
     public void setComment(String comment) {
         this.comment = comment;
+    }
+
+    public String getUploadId() {
+        return uploadId;
+    }
+
+    public void setUploadId(String uploadId) {
+        this.uploadId = uploadId;
     }
 }
 

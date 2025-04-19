@@ -1,9 +1,12 @@
 package com.ruipeng.cloudstorage.controller;
 
+
+import com.amazonaws.services.s3.model.PartETag;
 import com.ruipeng.cloudstorage.entity.DownloadFileInfo;
-import com.ruipeng.cloudstorage.entity.File;
 import com.ruipeng.cloudstorage.entity.Folder;
-import com.ruipeng.cloudstorage.service.FolderService;
+import com.ruipeng.cloudstorage.entity.User;
+import com.ruipeng.cloudstorage.service.FileS3Service;
+import com.ruipeng.cloudstorage.service.FolderS3Service;
 import org.apache.ibatis.javassist.NotFoundException;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +15,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,6 +24,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.file.AccessDeniedException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,14 +32,19 @@ import java.util.Map;
 @RestController
 public class FolderController {
 
-    private FolderService folderService;
+    private final User user;
+    private FolderS3Service folderService;
+    private FileS3Service fileService;
 
     @Autowired
-    public FolderController(FolderService folderService) {
+    public FolderController(FolderS3Service folderService, FileS3Service fileService, User user) {
         this.folderService = folderService;
+        this.fileService = fileService;
+        this.user = user;
     }
     @GetMapping("/getRootFolders")
     public Map<String, Object> getRootFolders(@RequestParam Long userId) throws SQLException {
+        System.out.println("hello");
         Long rootFolderId = folderService.getRootFolderId(userId);
         List<Folder> folders = folderService.getFolders(userId, rootFolderId);
 
@@ -138,11 +149,117 @@ public class FolderController {
         }
 
         try {
-            folderService.uploadFolder(files, relativePaths, userId, parentFolderId);
+            folderService.uploadFolderSmall(files, relativePaths, userId, parentFolderId);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("fail uploading folder " + e.getMessage());
+        }
+    }
+    @PostMapping("/folders-initiate-upload")
+    public ResponseEntity<?> initiateUpload(
+            @RequestParam("files") MultipartFile[] files,
+            @RequestParam("relativePaths") String[] relativePaths,
+            @RequestParam(value = "parentFolderId", required = false) long parentFolderId,
+            @RequestParam("userId")long userId) {
+
+        try {
+
+            Map<String, Object> uploadInfo = folderService.initiateFolderUpload(
+                    files, relativePaths, userId, parentFolderId);
+
+            return ResponseEntity.ok(uploadInfo);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to initiate folder upload: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/folders-upload-part")
+    public ResponseEntity<?> uploadPart(
+            @RequestParam("fileId") Long fileId,
+            @RequestParam("uploadId") String uploadId,
+            @RequestParam("partNumber") int partNumber,
+            @RequestParam("file") MultipartFile file) {
+
+        try {
+            PartETag partETag = fileService.uploadPart(fileId, uploadId, partNumber, file.getBytes());
+            return ResponseEntity.ok(partETag);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to upload part: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/folders-upload-status")
+    public ResponseEntity<?> getUploadStatus(
+            @RequestParam("fileIds") List<Long> fileIds) {
+
+        try {
+            Map<String, Object> status = folderService.getFolderUploadStatus(fileIds);
+            return ResponseEntity.ok(status);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to get upload status: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/folders-complete-upload")
+    public ResponseEntity<?> completeUpload(
+            @RequestBody List<Map<String, Object>> fileCompletions) {
+
+        try {
+            folderService.completeFolderUpload(fileCompletions);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Failed to complete upload: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/folders-abort-upload")
+    public ResponseEntity<?> abortUpload(
+            @RequestBody List<Map<String, Object>> fileAborts) {
+        List<Map<String, String>> results = new ArrayList<>();
+
+        for (Map<String, Object> abort : fileAborts) {
+            try {
+                Long fileId = null;
+                Object fileIdObj = abort.get("fileId");
+                if (fileIdObj instanceof Number) {
+                    fileId = ((Number) fileIdObj).longValue();
+                } else if (fileIdObj instanceof String) {
+                    fileId = Long.parseLong((String) fileIdObj);
+                }
+
+                String uploadId = (String) abort.get("uploadId");
+                Long folderId = (Long) abort.get("folderId");
+                Long userId = (Long) abort.get("userId");
+
+                if (fileId != null && uploadId != null) {
+                    folderService.abortFolderUpload(fileId, uploadId,folderId,userId);
+                    results.add(Map.of("fileId", String.valueOf(fileId), "status", "success"));
+                } else {
+                    results.add(Map.of("fileId", String.valueOf(fileId), "status", "failed", "error", "Missing fileId or uploadId"));
+                }
+            } catch (Exception e) {
+                results.add(Map.of("fileId", String.valueOf(abort.get("fileId")), "status", "failed", "error", e.getMessage()));
+            }
+        }
+
+        return ResponseEntity.ok(results);
+    }
+
+
+    private static class ErrorResponse {
+        private final String message;
+
+        public ErrorResponse(String message) {
+            this.message = message;
+        }
+
+        public String getMessage() {
+            return message;
         }
     }
 

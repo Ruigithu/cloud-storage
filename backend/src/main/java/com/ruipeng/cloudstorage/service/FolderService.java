@@ -113,7 +113,6 @@ public class FolderService {
         if (parentFolder == null) {
             throw new NotFoundException("Parent folder not found");
         }
-        System.out.println("执行到2");
 
         //  if it is root folder
         Folder rootFolder = folderMapper.findRootFolderByUserId(userId);
@@ -362,20 +361,13 @@ public class FolderService {
 
     public DownloadFileInfo downloadFolder(Long folderId, Long userId) throws IOException {
 
+
         Folder folder = folderMapper.findById(folderId);
         if (folder == null) {
             throw new RuntimeException("folder does not exist");
         }
 
-
-        FilePermission permission = filePermissionMapper.findByFolderIdAndUserId(folderId, userId);
-        if (permission == null) {
-            throw new RuntimeException("no permission");
-        }
-
-
         List<Folder> subFolders = folderMapper.findSubFolders(folder.getPath(), folderId);
-
 
         List<File> allFiles = fileMapper.findFilesByFolderIds(
                 subFolders.stream()

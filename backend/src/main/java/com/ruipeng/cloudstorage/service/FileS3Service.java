@@ -1,11 +1,16 @@
 package com.ruipeng.cloudstorage.service;
 
+import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
+import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.PartSummary;
+import com.amazonaws.services.s3.model.UploadPartResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruipeng.cloudstorage.entity.*;
 import com.ruipeng.cloudstorage.mappers.FileMapper;
 import com.ruipeng.cloudstorage.mappers.FilePermissionMapper;
 import com.ruipeng.cloudstorage.mappers.FileVersionMapper;
 import com.ruipeng.cloudstorage.mappers.ShareMapper;
+import com.ruipeng.cloudstorage.util.SecurityUtil;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
@@ -19,16 +24,20 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class FileS3Service {
@@ -49,6 +58,107 @@ public class FileS3Service {
         this.shareMapper = shareMapper;
         this.s3StorageService = s3StorageService;
     }
+@Transactional
+    public Map<String, Object> initiateResumableUpload(Long ownerId, Long folderId, String fileName, String mimeType, Long fileSize) throws IOException {
+        if(folderId==null|| fileMapper.folderExists(folderId).isEmpty()) {
+            throw new FileNotFoundException("Folder does not exist");
+        }
+        System.out.println(1);
+
+        //store meta data
+        File newFile = new File();
+        newFile.setName(fileName);
+        newFile.setMimeType(mimeType);
+        newFile.setSize(fileSize);
+        newFile.setOwnerId(ownerId);
+        newFile.setFolderId(folderId);
+        fileMapper.insertFile(newFile);
+
+        System.out.println(2);
+        String s3Key = String.format("%s/%s/%s_v1%s",
+                ownerId, folderId, newFile.getId(), fileName.substring(fileName.lastIndexOf('.')));
+
+        InitiateMultipartUploadResult initiated = s3StorageService.initiateMultipartUpload(s3Key);
+        String uploadId = initiated.getUploadId();
+        System.out.println(3);
+        //temp
+        FileVersion version = new FileVersion();
+        version.setFileId(newFile.getId());
+        version.setVersionNumber(1);
+        version.setStoragePath(s3Key);
+        version.setSize(fileSize);
+        version.setCreatedBy(ownerId);
+        version.setUploadId(uploadId); // 假设 FileVersion 实体新增 uploadId 字段
+        fileVersionMapper.insertVersion(version);
+
+        System.out.println(4);
+        FilePermission permission = new FilePermission();
+        permission.setFileId(newFile.getId());
+        permission.setPermission(PermissionType.ADMIN);
+        permission.setCreatedBy(ownerId);
+        permission.setCreatedAt(Instant.now());
+        permission.setUserId(ownerId);
+        permission.setFolderId(folderId);
+
+        System.out.println(5);
+        FilePermission existingPermission = filePermissionMapper.findByFileIdAndUserId(newFile.getId(), ownerId);
+        if (existingPermission == null) {
+            filePermissionMapper.insert(permission);
+        } else {
+            existingPermission.setPermission(PermissionType.ADMIN);
+            filePermissionMapper.update(existingPermission);
+        }
+
+    Map<String, Object> result = new HashMap<>();
+    result.put("fileId", newFile.getId());
+    result.put("uploadId", uploadId);
+    return result;
+
+    }
+
+    //upload part
+    public PartETag uploadPart(Long fileId, String uploadId,int partNumber, byte[]partData) throws IOException{
+        FileVersion version = fileVersionMapper.getVersionByFileId(fileId);
+        if (version==null || !version.getUploadId().equals(uploadId)){
+            throw new RuntimeException("Invalid upload ID or file version");
+        }
+        String s3Key = version.getStoragePath();
+        UploadPartResult uploadPartResult = s3StorageService.uploadPart(s3Key,uploadId,partNumber,partData,partData.length);
+        return new PartETag(partNumber,uploadPartResult.getETag());
+    }
+
+    public List<PartSummary> listUploadedParts(Long fileId, String uploadId) {
+        FileVersion version = fileVersionMapper.getLatestVersion(fileId);
+        if (version == null ||version.getUploadId() == null|| !version.getUploadId().equals(uploadId)) {
+            throw new RuntimeException("Invalid upload ID or file version");
+        }
+        return s3StorageService.listParts(version.getStoragePath(), uploadId);
+    }
+
+
+    public void completeResumableUpload(Long fileId, String uploadId, List<PartETag> partETags) {
+        FileVersion version = fileVersionMapper.getLatestVersion(fileId);
+        if (version == null || !version.getUploadId().equals(uploadId)) {
+            throw new RuntimeException("Invalid upload ID or file version");
+        }
+        s3StorageService.completeMultipartUpload(version.getStoragePath(), uploadId, partETags);
+        // 更新版本状态
+        version.setUploadId(null); // 清除 uploadId，表示上传完成
+        fileVersionMapper.updateUploadStatus(version);
+    }
+
+
+    public void abortResumableUpload(Long fileId, String uploadId ) throws IOException {
+        FileVersion version = fileVersionMapper.getLatestVersion(fileId);
+        if (version == null || !version.getUploadId().equals(uploadId)) {
+            throw new RuntimeException("Invalid upload ID or file version");
+        }
+        s3StorageService.abortMultipartUpload(version.getStoragePath(), uploadId);
+        softDeleteFile(fileId, SecurityUtil.getCurrentUserId());
+        deleteFile(fileId, SecurityUtil.getCurrentUserId());
+    }
+
+
 
     public File uploadFile(MultipartFile file, Long ownerId, Long folderId) throws IOException {
         System.out.println("folderId:"+folderId);

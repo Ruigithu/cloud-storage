@@ -31,15 +31,15 @@ public class ShareService {
     private final ShareMapper shareMapper;
     private final FileMapper fileMapper;
     private final FileVersionMapper fileVersionMapper;
-    private final FileService fileService;
+    private final FileS3Service fileService;
     private final FolderMapper folderMapper;
-    private final FolderService folderService;
+    private final FolderS3Service folderService;
 
     @Value("${frontend.url}")
     private String frontendUrl;
 
     @Autowired
-    public ShareService(ShareMapper shareMapper, FileMapper fileMapper, FileVersionMapper fileVersionMapper, FileService fileService, FolderMapper folderMapper, FolderService folderService) {
+    public ShareService(ShareMapper shareMapper, FileMapper fileMapper, FileVersionMapper fileVersionMapper, FileS3Service fileService, FolderMapper folderMapper, FolderS3Service folderService) {
         this.shareMapper = shareMapper;
         this.fileMapper = fileMapper;
         this.fileVersionMapper = fileVersionMapper;
@@ -58,27 +58,20 @@ public class ShareService {
         }
 
         // Create a share record
-        System.out.println("Step 3");
+
         Share share = new Share();
-        System.out.println("share:" + share.getId() + "," + share.getCreatedAt() + "," + share.isActive());
         share.setFileId(fileId);
-        System.out.println("FileId set");
         share.setCreatedBy(createdBy);
-        System.out.println("CreatedBy set");
         if (Objects.equals(accessType, "read")) {
             share.setAccessType(PermissionType.READ);
         } else {
             share.setAccessType(PermissionType.WRITE);
         }
-        System.out.println("AccessType set");
-        System.out.println(expiresAt + " value");
 
         if (expiresAt != null) {
             share.setExpiresAt(OffsetDateTime.parse(expiresAt));
         }
 
-        System.out.println("share:" + share.getFileId() + " " + share.getCreatedBy() + " " + share.getAccessType() + " " + share.getExpiresAt());
-        System.out.println("shareId:" + share.getId().getClass());
         try {
             shareMapper.insert(share);
         } catch (Exception e) {
@@ -96,7 +89,6 @@ public class ShareService {
     }
 
     public ShareInfoResponse getShareInfo(UUID shareId, Long userId) {
-        System.out.println("Step 1");
         Share share = null;
         try {
             share = shareMapper.findById(shareId);

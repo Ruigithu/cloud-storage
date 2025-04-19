@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import "./OperateSpecificFolder.css"
+import apiRequest from "../../../utils/api";
 
 const OperateSpecificFolder = ({ folder, userId }) => {
     const [isMenuVisible, setIsMenuVisible] = useState(false);
@@ -30,7 +31,7 @@ const OperateSpecificFolder = ({ folder, userId }) => {
 
     const handleDeleteFolder = async (folderId, userId) => {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/softDeleteFolder?folderId=${folderId}&userId=${userId}`, {
+            const response =await apiRequest(`${process.env.REACT_APP_API_URL}/softDeleteFolder?folderId=${folderId}&userId=${userId}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"
@@ -48,7 +49,7 @@ const OperateSpecificFolder = ({ folder, userId }) => {
 
     const handleDownloadFolder = async (folderId, userId) => {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/downloadFolder?folderId=${folderId}&userId=${userId}`, {
+            const response =await apiRequest(`${process.env.REACT_APP_API_URL}/downloadFolder?folderId=${folderId}&userId=${userId}`, {
                 method: 'GET',
                 credentials: 'include',
             });

@@ -53,13 +53,13 @@ const CreateFolderDialog = ({ onCreateFolder }) => {
                         <div className="modal-content">
                             <p className="modal-title">Create New Folder</p>
 
-                            <form onSubmit={handleSubmit} className="form-container">
+                            <form onSubmit={handleSubmit} className="form-container-createDialog">
                                 <input
                                     type="text"
                                     value={folderName}
                                     onChange={(e) => setFolderName(e.target.value)}
                                     placeholder="Enter folder name"
-                                    className="form-input"
+                                    className="form-input-createDialog"
                                     autoFocus
                                 />
 

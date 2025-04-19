@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruipeng.cloudstorage.config.file.FileStorageConfig;
 import com.ruipeng.cloudstorage.entity.*;
 import com.ruipeng.cloudstorage.mappers.FileVersionMapper;
+import com.ruipeng.cloudstorage.service.FileS3Service;
 import com.ruipeng.cloudstorage.service.FileService;
+import com.ruipeng.cloudstorage.service.FolderS3Service;
 import com.ruipeng.cloudstorage.service.FolderService;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -38,14 +40,14 @@ public class FileController {
     private final FilePermission filePermission;
     private final User user;
     private final FileVersionMapper fileVersionMapper;
-    private FileService fileService;
+    private final FileS3Service fileService;
     private File file;
     private FileStorageConfig storage;
-    private FolderService folderService;
+    private final FolderService folderService;
 
 
 
-    public FileController(FileService fileService, File file , FileStorageConfig storage, FilePermission filePermission, User user, FileVersionMapper fileVersionMapper, FolderService folderService) {
+    public FileController(FileS3Service fileService, File file , FileStorageConfig storage, FilePermission filePermission, User user, FileVersionMapper fileVersionMapper, FolderService folderService) {
         this.fileService = fileService;
         this.file = file;
         this.storage = storage;

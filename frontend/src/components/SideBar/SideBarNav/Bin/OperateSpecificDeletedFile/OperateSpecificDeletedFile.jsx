@@ -1,5 +1,6 @@
 import React, {useRef, useState} from "react";
 import "./OperateSpecificDeletedFile.css"
+import apiRequest from "../../../../../utils/api";
 
 
 const OperateSpecificDeletedFile = ({file,userId}) => {
@@ -16,9 +17,6 @@ const OperateSpecificDeletedFile = ({file,userId}) => {
     };
 
     const handleClickOutside = (e) => {
-        console.log("Clicked outside:", e.target);
-        console.log("Button ref:", buttonRef.current);
-        console.log("Menu ref:", menuRef.current);
 
         if (menuRef.current &&
             !menuRef.current.contains(e.target) &&
@@ -37,7 +35,7 @@ const OperateSpecificDeletedFile = ({file,userId}) => {
 
     async function handleDeleteFile(fileId, userId) {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/deleteFile?fileId=${fileId}&userId=${userId}`, {
+            const response =await apiRequest(`${process.env.REACT_APP_API_URL}/deleteFile?fileId=${fileId}&userId=${userId}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"
@@ -57,7 +55,7 @@ const OperateSpecificDeletedFile = ({file,userId}) => {
 
     async function handleRestoreFile(id, userId) {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/restoreFile?fileId=${id}&ownerId=${userId}`, {
+            const response =await apiRequest(`${process.env.REACT_APP_API_URL}/restoreFile?fileId=${id}&ownerId=${userId}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

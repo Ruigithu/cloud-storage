@@ -51,14 +51,14 @@
 }
 
 /* Form container */
-.form-container {
+.form-container-createDialog {
     display: flex;
     flex-direction: column;
     gap: 16px;
 }
 
 /* Input field */
-.form-input {
+.form-input-createDialog {
     height: 36px;
     padding: 8px 12px;
     border: 1px solid #ddd;
@@ -68,7 +68,7 @@
     width: 350px;
 }
 
-.form-input:focus {
+.form-input-createDialog:focus {
     outline: none;
     border-color: #2563eb;
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);

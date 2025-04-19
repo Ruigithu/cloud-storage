@@ -1,5 +1,6 @@
 import React, {useRef, useState} from "react";
 import "./OperateSpecificSharedFile.css"
+import apiRequest from "../../../../../utils/api";
 
 
 const OperateSpecificSharedFile = ({shareId,userId,active,refresh}) => {
@@ -35,7 +36,7 @@ const OperateSpecificSharedFile = ({shareId,userId,active,refresh}) => {
 
     async function handleCancelShare(id, userId) {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/cancelShare?shareId=${id}&ownerId=${userId}`, {
+            const response = await apiRequest(`${process.env.REACT_APP_API_URL}/cancelShare?shareId=${id}&ownerId=${userId}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -54,7 +55,7 @@ const OperateSpecificSharedFile = ({shareId,userId,active,refresh}) => {
     }
     async function handleRestore(id, userId) {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/restore?shareId=${id}&ownerId=${userId}`, {
+            const response =await apiRequest(`${process.env.REACT_APP_API_URL}/restore?shareId=${id}&ownerId=${userId}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

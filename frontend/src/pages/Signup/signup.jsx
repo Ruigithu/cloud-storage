@@ -80,7 +80,7 @@ function Signup(){
                                (e) => setPasswordHash(e.target.value)
                            }/>
                 </label>
-                <button className="signup-submit" type="submit">Sign in</button>
+                <button className="signup-submit" type="submit">Sign up</button>
             </form>
 
         </div>

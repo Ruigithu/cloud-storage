@@ -5,16 +5,16 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.model.*;
 import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 @Service
 public class S3StorageService {
@@ -47,6 +47,48 @@ public class S3StorageService {
 
         return keyName;
     }
+    public InitiateMultipartUploadResult initiateMultipartUpload(String keyName){
+        InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest(bucketName, keyName);
+        return s3Client.initiateMultipartUpload(request);
+    }
+
+    //upload  file part
+    public UploadPartResult uploadPart (String keyName, String uploadId, int partNumber, byte[] partData, long partSize){
+        UploadPartRequest uploadPartRequest = new UploadPartRequest()
+                .withBucketName(bucketName)
+                .withKey(keyName)
+                .withPartNumber(partNumber)
+                .withUploadId(uploadId)
+                .withInputStream(new ByteArrayInputStream(partData))
+                .withPartSize(partSize);
+        return s3Client.uploadPart(uploadPartRequest);
+    }
+    //query uploaded part
+    public List<PartSummary> listParts(String keyName, String uploadId){
+        ListPartsRequest listPartsRequest = new ListPartsRequest(bucketName, keyName, uploadId);
+        PartListing partListing = s3Client.listParts(listPartsRequest);
+        return partListing.getParts();
+    }
+
+
+    public void completeMultipartUpload(String keyName, String uploadId, List<PartETag> partETags) {
+        try {
+            CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(
+                    bucketName, keyName, uploadId, partETags);
+            s3Client.completeMultipartUpload(completeRequest);
+        } catch (Exception e) {
+            System.err.println(" Error completing multipart upload: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    public void abortMultipartUpload(String keyName, String uploadId) throws IOException {
+        AbortMultipartUploadRequest abortRequest = new AbortMultipartUploadRequest(bucketName, keyName, uploadId);
+        s3Client.abortMultipartUpload(abortRequest);
+
+    }
+
 
     public byte[] downloadFile(String keyName) throws IOException {
         S3Object s3Object = s3Client.getObject(bucketName, keyName);

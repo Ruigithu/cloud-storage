@@ -123,8 +123,11 @@ public class ShareController {
             for (Share share : shares) {
                 FileVersion latestVersion = fileVersionMapper.getLatestVersion(share.getFileId());
                 File file = fileMapper.getFileByUserIdAndFileId(userId, latestVersion.getFileId());
+                if (file == null) {
+                    System.out.println("File not found: " + latestVersion.getFileId());
+                    continue;
+                }
                 ShareInfoResponse shareInfo = new ShareInfoResponse();
-
                 shareInfo.setId(share.getId());
                 shareInfo.setFileId(latestVersion.getFileId());
                 shareInfo.setFilePath(latestVersion.getStoragePath());
@@ -136,8 +139,6 @@ public class ShareController {
                 shareInfo.setType(share.getAccessType());
                 shareInfo.setActive(share.isActive());
                 shareInfoResponses.add(shareInfo);
-
-
             }
 
             if (shareInfoResponses.isEmpty()) {

@@ -15,10 +15,13 @@ public interface FileVersionMapper {
     })
     int getVersionNumber(long fileId);
 
-    @Insert("INSERT INTO file_versions ( file_id, version_number, storage_path, size, created_by,created_at,comment) " +
-            "VALUES ( #{fileId}, #{versionNumber}, #{storagePath},#{size}, #{createdBy}, CURRENT_TIMESTAMP,#{comment})")
+    @Insert("INSERT INTO file_versions ( file_id, version_number, storage_path, size, created_by,created_at,comment,upload_id) " +
+            "VALUES ( #{fileId}, #{versionNumber}, #{storagePath},#{size}, #{createdBy}, CURRENT_TIMESTAMP,#{comment},#{uploadId})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insertVersion(FileVersion fileVersion);
+
+    @Update("UPDATE file_versions SET upload_id= #{uploadId} WHERE id=#{id}")
+    void updateUploadStatus(FileVersion fileVersion);
 
     @Select("SELECT * FROM file_versions WHERE file_id = #{fileId}")
     @Results({
@@ -29,7 +32,8 @@ public interface FileVersionMapper {
             @Result(property = "size",column = "size"),
             @Result(property = "createdBy",column = "created_by"),
             @Result(property = "createdAt",column = "created_at"),
-            @Result(property = "comment",column = "comment")
+            @Result(property = "comment",column = "comment"),
+            @Result(property = "uploadId", column = "upload_id")
     })
     List<FileVersion> getVersionsByFileId(Long fileId);
 
@@ -42,7 +46,8 @@ public interface FileVersionMapper {
             @Result(property = "size",column = "size"),
             @Result(property = "createdBy",column = "created_by"),
             @Result(property = "createdAt",column = "created_at"),
-            @Result(property = "comment",column = "comment")
+            @Result(property = "comment",column = "comment"),
+            @Result(property = "uploadId", column = "upload_id")
     })
     FileVersion getVersionByFileId(Long fileId);
 
@@ -55,7 +60,8 @@ public interface FileVersionMapper {
             @Result(property = "fileId", column = "file_id"),
             @Result(property = "versionNumber", column = "version_number"),
             @Result(property = "storagePath", column = "storage_path"),
-            @Result(property = "createdBy", column = "created_by")
+            @Result(property = "createdBy", column = "created_by"),
+            @Result(property = "uploadId", column = "upload_id")
     })
     FileVersion getLatestVersion(@Param("fileId") Long fileId);
 

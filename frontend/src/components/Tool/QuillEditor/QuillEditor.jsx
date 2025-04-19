@@ -4,6 +4,7 @@ import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import './QuillEditor.css'
 import SockJS from 'sockjs-client';
+import apiRequest from "../../../utils/api";
 
 const QuillEditor = ({ documentId, userId }) => {
     const editorRef = useRef(null);
@@ -20,7 +21,6 @@ const QuillEditor = ({ documentId, userId }) => {
     const contentChangeRef = useRef(false);
     const [saveCount, setSaveCount] = useState(0);
 
-    // 定义防抖函数
     const debounce = (func, wait) => {
         let timeout;
         return function executedFunction(...args) {
@@ -84,14 +84,9 @@ const QuillEditor = ({ documentId, userId }) => {
 
         newSocket.onmessage = (event) => {
             try {
-                console.log("Raw event data:", event.data);
                 const parsedData = JSON.parse(event.data);
-                console.log("Parsed event data:", parsedData);
 
                 const { type, userId: editingUserId, delta } = parsedData;
-
-                console.log("Event data: ", event.data);
-                console.log(`传回的user是：`+editingUserId);
 
                 if (type === 'text-change' && editingUserId !== userId) {
                     quillRef.current.updateContents(delta);
@@ -145,7 +140,7 @@ const QuillEditor = ({ documentId, userId }) => {
         const loadDocument = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(
+                const response = await apiRequest(
                     `${process.env.REACT_APP_API_URL}/getFileByUserIdAndFileId?ownerId=${userId}&fileId=${documentId}`,
                     {
                         method: 'GET',
@@ -156,8 +151,6 @@ const QuillEditor = ({ documentId, userId }) => {
                         credentials: 'include'
                     }
                 );
-                console.log('Response Status:', response.status);
-                console.log('Content-Type:', response.headers.get('content-type'))
                 if (!response.ok) {
                     throw new Error(`Server responded with status ${response.status}`);
                 }
@@ -241,7 +234,7 @@ const QuillEditor = ({ documentId, userId }) => {
             formData.append('ownerId', userId);
             formData.append('folderId', documentId);
 
-            const response = await fetch(
+            const response = await apiRequest(
                 `${process.env.REACT_APP_API_URL}/uploadNewFile`,
                 {
                     method: 'POST',
@@ -268,7 +261,6 @@ const QuillEditor = ({ documentId, userId }) => {
         }
     };
 
-    // 创建防抖处理的保存函数
     const debouncedSave = useCallback(
         debounce(() => {
             if (contentChangeRef.current) {

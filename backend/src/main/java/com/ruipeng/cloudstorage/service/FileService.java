@@ -10,6 +10,8 @@ import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -18,7 +20,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 
@@ -32,6 +38,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -44,22 +51,35 @@ public class FileService {
     private FileMapper fileMapper;
     private FileVersionMapper fileVersionMapper;
     private FilePermissionMapper filePermissionMapper;
+    private final ThreadPoolTaskExecutor taskExecutor;
 
     @Value("${file.storage.path}")
     private String baseStoragePath;
 
-    public FileService(FileMapper fileMapper, FileVersionMapper fileVersionMapper, FilePermissionMapper filePermissionMapper, File file, ShareMapper shareMapper) {
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+
+    public FileService(FileMapper fileMapper,
+                       FileVersionMapper fileVersionMapper,
+                       FilePermissionMapper filePermissionMapper,
+                       File file,
+                       ShareMapper shareMapper,
+                       ThreadPoolTaskExecutor taskExecutor) {
         this.fileMapper = fileMapper;
         this.fileVersionMapper = fileVersionMapper;
         this.filePermissionMapper = filePermissionMapper;
         this.file = file;
         this.shareMapper = shareMapper;
+        this.taskExecutor = taskExecutor;
     }
 
+    @Transactional
     public File uploadFile(MultipartFile file, Long ownerId, Long folderId) throws IOException {
         if (folderId == null && fileMapper.folderExists(folderId).isEmpty()) {
             throw new RuntimeException("folder not exist");
         }
+        long startTime = System.currentTimeMillis();
 
         String originalFilename = file.getOriginalFilename();
 
@@ -113,51 +133,96 @@ public class FileService {
 
         System.out.println("directoryPath:" + directoryPath);
         Path filePath = directoryPath.resolve(newFileName);
+//
+//        // construct parent folder
+//        try {
+//            Files.createDirectories(directoryPath);
+//        } catch (IOException e) {
+//            throw new IOException("Failed to create directories: " + directoryPath, e);
+//        }
+//
+//        // save file
+//        try {
+//            file.transferTo(filePath.toFile());
+//        } catch (IOException e) {
+//            throw new IOException("Failed to store file at: " + filePath, e);
+//        }
+//
+////          file_versions
+//        FileVersion version = new FileVersion();
+//        version.setFileId(newFile.getId());
+//        version.setVersionNumber(versionNumber);
+//        version.setStoragePath(filePath.toString());
+//        version.setSize(file.getSize());
+//        version.setCreatedBy(ownerId);
+//        fileVersionMapper.insertVersion(version);
+//
+////         permission table
+//        FilePermission permission = new FilePermission();
+//        permission.setFileId(newFile.getId());
+//        permission.setPermission(PermissionType.ADMIN);
+//        permission.setCreatedBy(ownerId);
+//        permission.setCreatedAt(Instant.now());
+//        permission.setUserId(ownerId);
+//        permission.setFolderId(folderId);
+//
+//        try {
+//            FilePermission existingPermission = filePermissionMapper.findByFileIdAndUserId(newFile.getId(), ownerId);
+//            if (existingPermission==null) {
+//                filePermissionMapper.insert(permission);
+//            } else {
+//                existingPermission.setPermission(PermissionType.ADMIN);
+//                filePermissionMapper.update(existingPermission);
+//            }
+//        } catch (Exception e) {
+//            throw new RuntimeException();
+//        }
 
-        // construct parent folder
-        try {
-            Files.createDirectories(directoryPath);
-        } catch (IOException e) {
-            throw new IOException("Failed to create directories: " + directoryPath, e);
-        }
+        CompletableFuture.runAsync(() -> {
+            long asyncStartTime = System.currentTimeMillis();
+            TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+            transactionTemplate.execute(status -> {
+                try {
+                    Files.createDirectories(directoryPath); // 创建目录
+                    file.transferTo(filePath.toFile());     // 保存文件到本地
+                    // 插入 file_versions 表
+                    FileVersion version = new FileVersion();
+                    version.setFileId(newFile.getId());
+                    version.setVersionNumber(versionNumber);
+                    version.setStoragePath(filePath.toString());
+                    version.setSize(file.getSize());
+                    version.setCreatedBy(ownerId);
+                    fileVersionMapper.insertVersion(version);
 
-        // save file
-        try {
-            file.transferTo(filePath.toFile());
-        } catch (IOException e) {
-            throw new IOException("Failed to store file at: " + filePath, e);
-        }
+                    FilePermission permission = new FilePermission();
+                    permission.setFileId(newFile.getId());
+                    permission.setPermission(PermissionType.ADMIN);
+                    permission.setCreatedBy(ownerId);
+                    permission.setCreatedAt(Instant.now());
+                    permission.setUserId(ownerId);
+                    permission.setFolderId(folderId);
 
-        //  file_versions
-        FileVersion version = new FileVersion();
-        version.setFileId(newFile.getId());
-        version.setVersionNumber(versionNumber);
-        version.setStoragePath(filePath.toString());
-        version.setSize(file.getSize());
-        version.setCreatedBy(ownerId);
-        fileVersionMapper.insertVersion(version);
+                    FilePermission existingPermission = filePermissionMapper.findByFileIdAndUserId(newFile.getId(), ownerId);
+                    if (existingPermission==null) {
+                        filePermissionMapper.insert(permission);
+                    } else {
+                        existingPermission.setPermission(PermissionType.ADMIN);
+                        filePermissionMapper.update(existingPermission);
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
 
-        // permission table
-        FilePermission permission = new FilePermission();
-        permission.setFileId(newFile.getId());
-        permission.setPermission(PermissionType.ADMIN);
-        permission.setCreatedBy(ownerId);
-        permission.setCreatedAt(Instant.now());
-        permission.setUserId(ownerId);
-        permission.setFolderId(folderId);
+              return null;
+          });
 
-        try {
-            FilePermission existingPermission = filePermissionMapper.findByFileIdAndUserId(newFile.getId(), ownerId);
-            if (existingPermission==null) {
-                filePermissionMapper.insert(permission);
-            } else {
-                existingPermission.setPermission(PermissionType.ADMIN);
-                filePermissionMapper.update(existingPermission);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            long asyncEndTime = System.currentTimeMillis();
+            System.out.println("Async Task Time: " + (asyncEndTime - asyncStartTime) + " ms");
+        }, taskExecutor);
 
+        long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
+        System.out.println("Main Thread Upload Time: " + duration + " ms");
 
         return newFile;
     }
@@ -380,22 +445,18 @@ public class FileService {
         if (file == null) {
             throw new RuntimeException("file not exist");
         }
-
         // 2. new version
         FileVersion latestVersion = fileVersionMapper.getLatestVersion(fileId);
         if (latestVersion == null) {
             throw new RuntimeException("file version does not exist");
         }
-
         // 3. get the local path
         Path filePath = Paths.get(latestVersion.getStoragePath());
         if (!Files.exists(filePath)) {
             throw new RuntimeException("file does not exist in local storage");
         }
-
         // 4. construct resources
         Resource resource = new FileSystemResource(filePath.toFile());
-
         return new DownloadFileInfo(
                 file.getName(),
                 file.getMimeType(),

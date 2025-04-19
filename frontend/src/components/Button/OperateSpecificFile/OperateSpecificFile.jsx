@@ -1,6 +1,7 @@
 import React, {useRef, useState} from "react";
 import "./OperateSpecificFile.css"
 import ShareFileDialog from "../ShareFileDialog/ShareFileDialog";
+import apiRequest from "../../../utils/api";
 
 
 const OperateSpecificFile = ({file,userId}) => {
@@ -19,10 +20,6 @@ const OperateSpecificFile = ({file,userId}) => {
 
 
     const handleClickOutside = (e) => {
-        console.log("Clicked outside:", e.target);
-        console.log("Button ref:", buttonRef.current);
-        console.log("Menu ref:", menuRef.current);
-
         if (menuRef.current &&
             !menuRef.current.contains(e.target) &&
             !buttonRef.current.contains(e.target)) {
@@ -33,7 +30,7 @@ const OperateSpecificFile = ({file,userId}) => {
         const downloadUrl = `/download?fileId=${file.id}`;
         const fetchFiles = async () => {
             try {
-                const response = await fetch(`${process.env.REACT_APP_API_URL}${downloadUrl}`, {
+                const response =await apiRequest(`${process.env.REACT_APP_API_URL}${downloadUrl}`, {
                     method: 'GET',
                     credentials: 'include',
                 });
@@ -69,7 +66,7 @@ const OperateSpecificFile = ({file,userId}) => {
 
     async function handleDeleteFile(fileId, userId) {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/softDeleteFile?fileId=${fileId}&userId=${userId}`, {
+            const response =await apiRequest(`${process.env.REACT_APP_API_URL}/softDeleteFile?fileId=${fileId}&userId=${userId}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"

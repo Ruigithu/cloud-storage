@@ -1,15 +1,19 @@
 package com.ruipeng.cloudstorage.service;
 
+import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.PartSummary;
 import com.ruipeng.cloudstorage.entity.*;
 import com.ruipeng.cloudstorage.mappers.FileMapper;
 import com.ruipeng.cloudstorage.mappers.FilePermissionMapper;
 import com.ruipeng.cloudstorage.mappers.FileVersionMapper;
 import com.ruipeng.cloudstorage.mappers.FolderMapper;
+import com.ruipeng.cloudstorage.util.SecurityUtil;
 import org.apache.ibatis.javassist.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.postgresql.util.PGobject;
@@ -33,16 +37,204 @@ public class FolderS3Service {
     private final FolderMapper folderMapper;
     private final FileMapper fileMapper;
     private final FileVersionMapper fileVersionMapper;
+    private final S3StorageService s3StorageService;
+    private final User user;
 
     @Autowired
     public FolderS3Service(FilePermissionMapper filePermissionMapper, FolderMapper folderMapper, FileMapper fileMapper,
-                           FileS3Service fileService, FileVersionMapper fileVersionMapper) {
+                           FileS3Service fileService, FileVersionMapper fileVersionMapper, S3StorageService s3StorageService, User user) {
         this.filePermissionMapper = filePermissionMapper;
         this.folderMapper = folderMapper;
         this.fileMapper = fileMapper;
         this.fileService = fileService;
         this.fileVersionMapper = fileVersionMapper;
+        this.s3StorageService = s3StorageService;
+        this.user = user;
     }
+    public void uploadFolder(MultipartFile[] files, String[] relativePaths, Long userId, Long parentFolderId)
+            throws IOException, SQLException, NotFoundException {
+        Map<String, Object> uploadInfo = initiateFolderUpload(files, relativePaths, userId, parentFolderId);
+
+    }
+
+    public Map<String, Object> initiateFolderUpload(MultipartFile[] files, String[] relativePaths, Long userId, Long parentFolderId)
+            throws IOException, SQLException, NotFoundException {
+        if (parentFolderId == null) {
+            parentFolderId = initRootFolderForUser(userId);
+        }
+
+        Folder parentFolder = folderMapper.findById(parentFolderId);
+        if (parentFolder == null) {
+            throw new NotFoundException("Parent folder not found");
+        }
+
+        Folder rootFolder = folderMapper.findRootFolderByUserId(userId);
+        if (rootFolder != null && !rootFolder.getId().equals(parentFolderId)) {
+            FilePermission permission = filePermissionMapper.findByFolderIdAndUserId(parentFolderId, userId);
+            if (permission == null || permission.getPermission() == PermissionType.READ) {
+                throw new AccessDeniedException("No permission to create folder in this location");
+            }
+        }
+
+        Map<String, Long> pathToFolderIdMap = new HashMap<>();
+        pathToFolderIdMap.put("", parentFolderId);
+
+
+        for (String relativePath : relativePaths) {
+            String folderPath = getFolderPath(relativePath);
+            if (!folderPath.isEmpty() && !pathToFolderIdMap.containsKey(folderPath)) {
+                createFolderStructure(folderPath, pathToFolderIdMap, userId, parentFolderId);
+            }
+        }
+
+
+        List<Map<String, Object>> fileUploads = new ArrayList<>();
+        for (int i = 0; i < files.length; i++) {
+            MultipartFile file = files[i];
+            String relativePath = relativePaths[i];
+            String folderPath = getFolderPath(relativePath);
+
+            Long targetFolderId = pathToFolderIdMap.get(folderPath);
+            if (targetFolderId == null) {
+                throw new RuntimeException("Folder does not exist: " + folderPath);
+            }
+
+            String fileName = getFileName(relativePath);
+            String mimeType = file.getContentType();
+            Long fileSize = file.getSize();
+
+            Map<String, Object> uploadInfo = fileService.initiateResumableUpload(
+                    userId, targetFolderId, fileName, mimeType, fileSize);
+
+
+            uploadInfo.put("relativePath", relativePath);
+            fileUploads.add(uploadInfo);
+        }
+
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("folderStructure", pathToFolderIdMap);
+        result.put("fileUploads", fileUploads);
+        return result;
+    }
+
+
+    private String getFileName(String relativePath) {
+        int lastSeparator = relativePath.lastIndexOf('/');
+        return lastSeparator >= 0 ? relativePath.substring(lastSeparator + 1) : relativePath;
+    }
+
+
+    public Map<String, Object> getFolderUploadStatus(List<Long> fileIds) {
+        Map<String, Object> status = new HashMap<>();
+        List<Map<String, Object>> fileStatuses = new ArrayList<>();
+
+        for (Long fileId : fileIds) {
+            Map<String, Object> fileStatus = new HashMap<>();
+            FileVersion version = fileVersionMapper.getLatestVersion(fileId);
+            File file = fileMapper.getFileById(fileId);
+
+            if (version != null && file != null) {
+                fileStatus.put("fileId", fileId);
+                fileStatus.put("fileName", file.getName());
+                fileStatus.put("size", file.getSize());
+
+                if (version.getUploadId() != null) {
+                    // 还在上传中
+                    List<PartSummary> parts = s3StorageService.listParts(version.getStoragePath(), version.getUploadId());
+                    long uploadedBytes = parts.stream().mapToLong(PartSummary::getSize).sum();
+                    fileStatus.put("status", "uploading");
+                    fileStatus.put("uploadedBytes", uploadedBytes);
+                    fileStatus.put("progress", (double) uploadedBytes / file.getSize());
+                    fileStatus.put("uploadId", version.getUploadId());
+                } else {
+                    // 上传完成
+                    fileStatus.put("status", "completed");
+                    fileStatus.put("progress", 1.0);
+                }
+            } else {
+                fileStatus.put("fileId", fileId);
+                fileStatus.put("status", "not_found");
+            }
+
+            fileStatuses.add(fileStatus);
+        }
+
+        status.put("files", fileStatuses);
+        status.put("totalFiles", fileIds.size());
+        status.put("completedFiles", fileStatuses.stream().filter(f -> "completed".equals(f.get("status"))).count());
+
+        return status;
+    }
+
+
+    public void completeFolderUpload(List<Map<String, Object>> fileCompletions) {
+        for (Map<String, Object> completion : fileCompletions) {
+            Long fileId = (Long) completion.get("fileId");
+            String uploadId = (String) completion.get("uploadId");
+            @SuppressWarnings("unchecked")
+            List<PartETag> partETags = (List<PartETag>) completion.get("partETags");
+
+            if (fileId != null && uploadId != null && partETags != null) {
+                fileService.completeResumableUpload(fileId, uploadId, partETags);
+            }
+        }
+    }
+
+
+    public void abortFolderUpload(Long fileId,String uploadId,Long folderId,Long userId) throws IOException {
+
+            if (fileId != null && uploadId != null) {
+                FileVersion version = fileVersionMapper.getLatestVersion(fileId);
+                if (version == null || !version.getUploadId().equals(uploadId)) {
+                    throw new RuntimeException("Invalid upload ID or file version");
+                }
+                s3StorageService.abortMultipartUpload(version.getStoragePath(), uploadId);
+            }
+    }
+    public void uploadFolderSmall(MultipartFile[] files, String[] relativePaths, Long userId, Long parentFolderId)
+            throws IOException, SQLException, NotFoundException {
+        if (parentFolderId == null) {
+            parentFolderId = initRootFolderForUser(userId);
+        }
+
+        Folder parentFolder = folderMapper.findById(parentFolderId);
+        if (parentFolder == null) {
+            throw new NotFoundException("Parent folder not found");
+        }
+
+        Folder rootFolder = folderMapper.findRootFolderByUserId(userId);
+        if (rootFolder != null && !rootFolder.getId().equals(parentFolderId)) {
+            FilePermission permission = filePermissionMapper.findByFolderIdAndUserId(parentFolderId, userId);
+            if (permission == null || permission.getPermission() == PermissionType.READ) {
+                throw new AccessDeniedException("No permission to create folder in this location");
+            }
+        }
+
+        Map<String, Long> pathToFolderIdMap = new HashMap<>();
+        pathToFolderIdMap.put("", parentFolderId);
+
+        for (String relativePath : relativePaths) {
+            String folderPath = getFolderPath(relativePath);
+            if (!folderPath.isEmpty() && !pathToFolderIdMap.containsKey(folderPath)) {
+                createFolderStructure(folderPath, pathToFolderIdMap, userId, parentFolderId);
+            }
+        }
+
+        for (int i = 0; i < files.length; i++) {
+            MultipartFile file = files[i];
+            String relativePath = relativePaths[i];
+            String folderPath = getFolderPath(relativePath);
+
+            Long targetFolderId = pathToFolderIdMap.get(folderPath);
+            if (targetFolderId == null) {
+                throw new RuntimeException("Folder does not exist: " + folderPath);
+            }
+
+            fileService.uploadFile(file, userId, targetFolderId);
+        }
+    }
+
 
     public Long getRootFolderId(Long userId) throws SQLException {
         return initRootFolderForUser(userId);
@@ -350,48 +542,7 @@ public class FolderS3Service {
 
     // 全局 Set 用于跟踪已使用的路径
     private final Set<String> usedPaths = Collections.synchronizedSet(new HashSet<>());
-    public void uploadFolder(MultipartFile[] files, String[] relativePaths, Long userId, Long parentFolderId)
-            throws IOException, SQLException, NotFoundException {
-        if (parentFolderId == null) {
-            parentFolderId = initRootFolderForUser(userId);
-        }
 
-        Folder parentFolder = folderMapper.findById(parentFolderId);
-        if (parentFolder == null) {
-            throw new NotFoundException("Parent folder not found");
-        }
-
-        Folder rootFolder = folderMapper.findRootFolderByUserId(userId);
-        if (rootFolder != null && !rootFolder.getId().equals(parentFolderId)) {
-            FilePermission permission = filePermissionMapper.findByFolderIdAndUserId(parentFolderId, userId);
-            if (permission == null || permission.getPermission() == PermissionType.READ) {
-                throw new AccessDeniedException("No permission to create folder in this location");
-            }
-        }
-
-        Map<String, Long> pathToFolderIdMap = new HashMap<>();
-        pathToFolderIdMap.put("", parentFolderId);
-
-        for (String relativePath : relativePaths) {
-            String folderPath = getFolderPath(relativePath);
-            if (!folderPath.isEmpty() && !pathToFolderIdMap.containsKey(folderPath)) {
-                createFolderStructure(folderPath, pathToFolderIdMap, userId, parentFolderId);
-            }
-        }
-
-        for (int i = 0; i < files.length; i++) {
-            MultipartFile file = files[i];
-            String relativePath = relativePaths[i];
-            String folderPath = getFolderPath(relativePath);
-
-            Long targetFolderId = pathToFolderIdMap.get(folderPath);
-            if (targetFolderId == null) {
-                throw new RuntimeException("Folder does not exist: " + folderPath);
-            }
-
-            fileService.uploadFile(file, userId, targetFolderId);
-        }
-    }
 
     private String getFolderPath(String relativePath) {
         int lastSeparator = relativePath.lastIndexOf('/');

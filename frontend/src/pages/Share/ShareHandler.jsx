@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import apiRequest from "../../utils/api";
 
 
 const ShareHandler = () => {
@@ -15,15 +16,13 @@ const ShareHandler = () => {
         hasCheckedShare.current = true;
         const checkShare = async () => {
             try {
-                console.log(`hhhhh`);
                 console.log(localStorage.getItem('userId'));
                 const userId = localStorage.getItem('userId');
-                // only adding userId when it has value and not "null"
                 let url = `${process.env.REACT_APP_API_URL}/share/${shareId}`;
                 if (userId && userId !== "null") {
                     url += `?userId=${userId}`;
                 }
-                const response = await fetch(
+                const response = await apiRequest(
                     `${url}`,
                     {
                         credentials: 'include',
@@ -35,7 +34,6 @@ const ShareHandler = () => {
                 );
                 console.log(String(response.status));
                 if (response.status === 401) {
-                    // 保存当前URL并重定向到登录页面
                     console.log(window.location.pathname);
                     localStorage.setItem('redirectAfterLogin', `/share/${shareId}`);
                     navigate('/login');
@@ -57,7 +55,7 @@ const ShareHandler = () => {
 
                 if (type === 'READ') {
                     try {
-                        const downloadResponse = await fetch(
+                        const downloadResponse =  await apiRequest(
                             `${process.env.REACT_APP_API_URL}/download?fileId=${fileId}`,
                             {
                                 credentials: 'include',
@@ -88,7 +86,7 @@ const ShareHandler = () => {
 
                     try {
 
-                        const saveResponse = await fetch(
+                        const saveResponse = await apiRequest(
 
                             `${process.env.REACT_APP_API_URL}/saveShare/${shareId}?userId=${localStorage.getItem('userId')}&rootFolderId=${localStorage.getItem('rootFolderId')}`,
                             {

@@ -38,9 +38,7 @@ public class UserService {
     }
 
     public long getUserId(String email){
-        System.out.println(email);
         long userId = userMapper.getUserId(email);
-        System.out.println("userId:"+userId);
         return userId;
     }
 

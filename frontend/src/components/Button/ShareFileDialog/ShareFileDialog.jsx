@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './ShareFileDialog.css';
+import apiRequest from "../../../utils/api";
 
 function ShareFileDialog({ fileId }) {
     const [showModal, setShowModal] = useState(false);
@@ -49,7 +50,7 @@ function ShareFileDialog({ fileId }) {
             formData.append('accessType', accessType);
             formData.append('expiresAt', expiresAt ? expiresAt.toISOString() : '');
 
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/createShareLink`, {
+            const response =await apiRequest(`${process.env.REACT_APP_API_URL}/createShareLink`, {
                 method: 'POST',
                 body: formData,
                 credentials:'include'
@@ -75,33 +76,33 @@ function ShareFileDialog({ fileId }) {
                 Share
             </div>
             {showModal && (
-                <div className="modal-overlay">
+                <div className="modal-overlay-share">
                     <div
-                        className="modal-container"
+                        className="modal-container-share"
                         onClick={e => e.stopPropagation()}
                     >
-                    <div className="modal-content">
-                        <h2 className="modal-header">Share Settings</h2>
-                        <form onSubmit={handleShare} className="form-container">
-                            <div className="form-group">
+                    <div className="modal-content-share">
+                        <h2 className="modal-header-share">Share Settings</h2>
+                        <form onSubmit={handleShare} className="form-container-share">
+                            <div className="form-group-share">
                                 <label>Access Type</label>
                                 <select
                                     value={accessType}
                                     onChange={(e) => setAccessType(e.target.value)}
-                                    className="select-input"
+                                    className="select-input-share"
                                 >
                                     <option value="read">Read Only</option>
                                     <option value="write">Read & Write</option>
                                 </select>
                             </div>
 
-                            <div className="form-group">
+                            <div className="form-group-share">
                                 <label>Expires After</label>
-                                <div className="duration-container">
+                                <div className="duration-container-share">
                                     <select
                                         value={duration}
                                         onChange={(e) => setDuration(e.target.value)}
-                                        className="select-input"
+                                        className="select-input-share"
                                     >
                                         <option value="hour">Hours</option>
                                         <option value="day">Days</option>
@@ -117,32 +118,32 @@ function ShareFileDialog({ fileId }) {
                                             max="999"
                                             value={amount}
                                             onChange={(e) => setAmount(parseInt(e.target.value) || 1)}
-                                            className="text-input"
+                                            className="text-input-share"
                                         />
                                     )}
                                 </div>
                             </div>
 
                             {shareLink && (
-                                <div className="form-group">
+                                <div className="form-group-share">
                                     <label>Share Link</label>
                                     <input
                                         type="text"
                                         value={shareLink}
                                         readOnly
-                                        className="text-input"
+                                        className="text-input-share"
                                     />
                                 </div>
                             )}
 
-                            <div className="button-container">
-                                <button type="submit" className="submit-button">
+                            <div className="button-container-share">
+                                <button type="submit" className="submit-button-share">
                                     Create Share Link
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleCloseModal}
-                                    className="cancel-button"
+                                    className="cancel-button-share"
                                 >
                                     Cancel
                                 </button>

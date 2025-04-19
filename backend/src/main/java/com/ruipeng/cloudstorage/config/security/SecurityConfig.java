@@ -1,5 +1,6 @@
 package com.ruipeng.cloudstorage.config.security;
 
+import jakarta.servlet.Filter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -9,9 +10,11 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.session.SessionManagementFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.filter.CorsFilter;
@@ -20,20 +23,25 @@ import org.springframework.web.filter.CorsFilter;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-    private AppUserDetailsService userDetailsService;
-    private AppAuthenticationFailureHandler failureHandler;
-    private AppLogoutHandler logoutHandler;
-    private  CorsFilter corsFilter;
-    private  CorsConfiguration corsConfiguration;
+    private final AppUserDetailsService userDetailsService;
+    private final AppAuthenticationFailureHandler failureHandler;
+    private final CorsFilter corsFilter;
+    private final CorsConfiguration corsConfiguration;
+    private final JWTService jwtService;
+    private final JWTFilter jwtFilter;
+
 
     @Autowired
-    public SecurityConfig(AppUserDetailsService userDetailsService, AppAuthenticationFailureHandler failureHandler, AppLogoutHandler logoutHandler, CorsFilter corsFilter, CorsConfiguration corsConfiguration) {
+    public SecurityConfig(AppUserDetailsService userDetailsService, AppAuthenticationFailureHandler failureHandler, CorsFilter corsFilter, CorsConfiguration corsConfiguration, JWTService jwtService, JWTFilter jwtFilter) {
         this.userDetailsService = userDetailsService;
         this.failureHandler = failureHandler;
-        this.logoutHandler = logoutHandler;
         this.corsFilter = corsFilter;
         this.corsConfiguration = corsConfiguration;
+        this.jwtService = jwtService;
+        this.jwtFilter = jwtFilter;
     }
+
+
 
 
     @Bean
@@ -67,6 +75,8 @@ public class SecurityConfig {
                                 response.sendRedirect("/login");
                             }
                         })
+                ).sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
@@ -74,9 +84,14 @@ public class SecurityConfig {
                         .successHandler((request, response, authentication) -> {
                             if (request.getHeader("Accept") != null &&
                                     request.getHeader("Accept").contains("application/json")) {
+                                String username = authentication.getName();
+                                String token = jwtService.generateToken(username);
+
                                 response.setStatus(HttpServletResponse.SC_OK);
                                 response.setContentType("application/json");
-                                response.getWriter().write("{\"success\":true}");
+                                response.getWriter().write(
+                                        String.format("{\"success\":true,\"token\":\"%s\",\"username\":\"%s\"}",
+                                                token, username));
                             } else {
                                 response.sendRedirect("/home");
                             }
@@ -93,6 +108,8 @@ public class SecurityConfig {
                         })
                         .permitAll()
                 );
+
+        http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

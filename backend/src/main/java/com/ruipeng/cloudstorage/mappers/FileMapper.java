@@ -61,7 +61,7 @@ public interface FileMapper {
     @Delete("DELETE FROM files WHERE id = #{fileId}")
     int deleteById(int fileId);
 
-    @Select("SELECT * from files where folder_id = #{folderId}")
+    @Select("SELECT * from folders where id = #{folderId}")
     List<File> folderExists(long folderId);
 
     @Delete("DELETE FROM files WHERE id = #{fileId}")

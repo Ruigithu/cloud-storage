@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import "./OperateSpecificDeletedFolder.css"
+import apiRequest from "../../../../../utils/api";
 
 const OperateSpecificDeletedFolder = ({ folder, userId }) => {
     const [isMenuVisible, setIsMenuVisible] = useState(false);
@@ -30,7 +31,7 @@ const OperateSpecificDeletedFolder = ({ folder, userId }) => {
 
     const handleDeleteFolder = async (folderId, userId) => {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/deleteFolder?folderId=${folderId}&userId=${userId}`, {
+            const response =await apiRequest(`${process.env.REACT_APP_API_URL}/deleteFolder?folderId=${folderId}&userId=${userId}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"
@@ -50,7 +51,7 @@ const OperateSpecificDeletedFolder = ({ folder, userId }) => {
 
     async function handleRestoreFolder(id, userId) {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/restoreFolder?folderId=${id}&ownerId=${userId}`, {
+            const response =await apiRequest(`${process.env.REACT_APP_API_URL}/restoreFolder?folderId=${id}&ownerId=${userId}`, {
                 method: "Post",
                 headers: {
                     "Content-Type": "application/json"

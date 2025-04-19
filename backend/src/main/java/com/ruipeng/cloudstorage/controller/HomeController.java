@@ -3,6 +3,7 @@ package com.ruipeng.cloudstorage.controller;
 
 import com.ruipeng.cloudstorage.entity.File;
 import com.ruipeng.cloudstorage.entity.UserInfo;
+import com.ruipeng.cloudstorage.service.FileS3Service;
 import com.ruipeng.cloudstorage.service.FileService;
 import com.ruipeng.cloudstorage.util.SecurityUtil;
 import org.springframework.http.ResponseEntity;
@@ -16,10 +17,10 @@ import java.util.Map;
 
 @RestController
 public class HomeController {
-    private FileService fileService;
+    private FileS3Service fileService;
 
 
-    public HomeController(FileService fileService) {
+    public HomeController(FileS3Service fileService) {
         this.fileService = fileService;
     }
 
