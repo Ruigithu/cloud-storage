@@ -10,7 +10,6 @@ const OperateSpecificFolder = ({ folder, userId }) => {
 
     const handleButtonClick = (e) => {
         e.stopPropagation();
-        console.log("Button clicked");
         setIsMenuVisible(!isMenuVisible);
     };
 

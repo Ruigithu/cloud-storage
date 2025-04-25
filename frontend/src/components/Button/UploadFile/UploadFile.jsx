@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import apiRequest from "../../../utils/api";
 
 function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
@@ -8,8 +8,11 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
     const [uploadId, setUploadId] = useState(null);
     const [fileId, setFileId] = useState(null);
     const [uploadedParts, setUploadedParts] = useState([]);
+
     const fileRef = useRef(null);
     const xhrRef = useRef(null);
+    // 使用 ref 来跟踪暂停状态，确保实时更新
+    const isPausedRef = useRef(false);
 
     const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB 分片大小
 
@@ -20,30 +23,32 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
         fileRef.current = file;
         setIsUploading(true);
         setUploadProgress(0);
-        setIsPaused(false);
 
-        const formData =new FormData();
-        formData.append('ownerId',ownerId);
-        formData.append('folderId',folderId);
+        // 同步更新状态和ref
+        setIsPaused(false);
+        isPausedRef.current = false;
+
+        const formData = new FormData();
+        formData.append('ownerId', ownerId);
+        formData.append('folderId', folderId);
         formData.append('fileName', file.name);
         formData.append('mimeType', file.type);
         formData.append('fileSize', file.size.toString());
+
         try {
             // 初始化分片上传
-            const initResponse = await apiRequest(`${process.env.REACT_APP_API_URL}/resumable/init `, {
+            const initResponse = await apiRequest(`${process.env.REACT_APP_API_URL}/resumable/init`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-                body:formData,
-
+                body: formData,
             });
 
             if (!initResponse.ok) throw new Error("Failed to initialize upload");
-            const initData = await initResponse.json();  // 解析JSON响应
+            const initData = await initResponse.json();
             console.log(initData);
-            setFileId(initData.fileId);  // 设置文件ID
-            setUploadId(initData.uploadId);  // 设置上传ID
+            setFileId(initData.fileId);
+            setUploadId(initData.uploadId);
 
-            // 查询已上传的分片
             const partsResponse = await apiRequest(
                 `${process.env.REACT_APP_API_URL}/resumable/parts?fileId=${initData.fileId}&uploadId=${initData.uploadId}`,
                 {
@@ -51,7 +56,6 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
                     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
                 }
             );
-            console.log(2);
 
             const uploadedParts = await partsResponse.json();
             setUploadedParts(uploadedParts.map((part) => ({
@@ -59,54 +63,78 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
                 eTag: part.eTag
             })));
 
-            // 开始分片上传
-            await uploadChunks(file, initData.uploadId,initData.fileId);
+            await uploadChunks(file, initData.uploadId, initData.fileId);
         } catch (error) {
             console.error("Error initializing upload:", error);
             setIsUploading(false);
         }
     };
 
-    const uploadChunks = async (file, uploadId, fileId) => {
+    // 使用 useCallback 来确保函数引用的稳定性
+    const uploadChunks = useCallback(async (file, uploadId, fileId, startPartNumber = 1) => {
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        console.log(`Starting upload from part ${startPartNumber} of ${totalChunks}`);
+
+        // 获取当前上传部分的副本
         const partETags = [...uploadedParts];
 
         try {
-            for (let i = 1; i <= totalChunks; i++) {
-                if (isPaused) {
-                    console.log("Upload paused");
-                    return;
+            for (let i = startPartNumber; i <= totalChunks; i++) {
+                // 使用ref检查是否暂停，确保实时状态
+                if (isPausedRef.current) {
+                    console.log("Upload paused at part", i);
+                    return; // 退出函数但不抛出错误
                 }
 
-                // 检查是否已上传该分片
-                if (partETags.some(part => part.partNumber === i)) {
-                    setUploadProgress(prevProgress =>
-                        Math.max(prevProgress, (i / totalChunks) * 100));
+                // 检查这部分是否已经上传
+                const alreadyUploaded = partETags.some(part => part.partNumber === i);
+                if (alreadyUploaded) {
+                    console.log(`Part ${i} already uploaded, skipping`);
+                    setUploadProgress(prev => Math.max(prev, (i / totalChunks) * 100));
                     continue;
                 }
 
+                console.log(`Uploading part ${i} of ${totalChunks}`);
                 const start = (i - 1) * CHUNK_SIZE;
                 const end = Math.min(start + CHUNK_SIZE, file.size);
                 const chunk = file.slice(start, end);
 
-                // 等待每个分片完成上传后再继续
-                const result = await uploadPart(chunk, fileId, uploadId, i);
-                partETags.push({
-                    partNumber: result.partNumber,
-                    eTag: result.eTag
-                });
+                try {
+                    const result = await uploadPart(chunk, fileId, uploadId, i);
+                    console.log(`Part ${i} upload completed:`, result);
+
+                    // 将此部分添加到我们的跟踪数组
+                    partETags.push({
+                        partNumber: result.partNumber,
+                        eTag: result.eTag
+                    });
+
+                    // 更新全局状态
+                    setUploadedParts(prev => [...prev.filter(p => p.partNumber !== i), {
+                        partNumber: result.partNumber,
+                        eTag: result.eTag
+                    }]);
+
+                    // 更新进度
+                    setUploadProgress((i / totalChunks) * 100);
+                } catch (error) {
+                    if (error.aborted) {
+                        console.log(`Part ${i} was aborted, will resume from here later`);
+                        return; // 如果这是中止，则退出但不抛出错误
+                    }
+                    throw error; // 重新抛出其他错误
+                }
             }
 
-            // 所有分片都上传完毕后才完成上传
+            // 所有部分上传完成，完成上传
             await completeUpload(fileId, uploadId, partETags);
-
         } catch (error) {
-            console.error("Error uploading chunks:", error);
+            console.error("Error in uploadChunks:", error);
             setIsUploading(false);
         }
-    };
+    }, [uploadedParts]);
 
-// New function to upload a single part with a Promise
+    // 上传单个部分的函数
     const uploadPart = (chunk, fileId, uploadId, partNumber) => {
         return new Promise((resolve, reject) => {
             const formData = new FormData();
@@ -121,24 +149,20 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
             xhr.upload.addEventListener("progress", (event) => {
                 if (event.lengthComputable) {
                     const totalChunks = Math.ceil(fileRef.current.size / CHUNK_SIZE);
+                    const partProgress = ((partNumber - 1) / totalChunks) * 100;
                     const chunkProgress = (event.loaded / event.total) * (100 / totalChunks);
-                    setUploadProgress(prev => Math.min(prev + chunkProgress, 100));
+                    const totalProgress = partProgress + chunkProgress;
+                    setUploadProgress(Math.min(totalProgress, 100));
                 }
             });
 
             xhr.addEventListener("load", () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
                     try {
-                        console.log("Raw response:", xhr.responseText);
                         const response = JSON.parse(xhr.responseText);
-                        console.log(`Part ${partNumber} upload response:`, response);
+                        console.log(`Part ${partNumber} uploaded successfully:`, response);
 
-                        // 打印对象的所有属性
-                        console.log("Response properties:", Object.keys(response));
-
-                        // 无论响应结构如何，确保我们提取正确的值
-                        const extractedPartNumber = response.partNumber || partNumber;
-                        const extractedETag = response.eTag;
+                        const extractedETag = response.etag || response.eTag;
 
                         if (!extractedETag) {
                             console.error("Cannot find eTag in response:", response);
@@ -147,7 +171,7 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
                         }
 
                         resolve({
-                            partNumber: extractedPartNumber,
+                            partNumber: partNumber,
                             eTag: extractedETag
                         });
                     } catch (error) {
@@ -169,10 +193,8 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
         });
     };
 
-
-
     const completeUpload = async (fileId, uploadId, partETags) => {
-        console.log("Calling completeUpload with3: ", partETags);
+        console.log("Calling completeUpload with: ", partETags);
 
         const payload = {
             fileId,
@@ -209,30 +231,84 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
             setUploadId(null);
             setFileId(null);
             setUploadedParts([]);
+            isPausedRef.current = false;
         }
     };
 
     const pauseUpload = () => {
+        // 同步更新状态和ref
         setIsPaused(true);
+        isPausedRef.current = true;
+
         if (xhrRef.current) {
             xhrRef.current.abort();
         }
     };
 
     const resumeUpload = async () => {
-        if (!fileRef.current || !uploadId) return;
+        if (!fileRef.current || !uploadId || !fileId) return;
 
+        // 同步更新状态和ref
         setIsPaused(false);
-        await uploadChunks(fileRef.current, uploadId);
+        isPausedRef.current = false;
+
+        try {
+            // 获取服务器上的最新部分信息
+            const partsResponse = await apiRequest(
+                `${process.env.REACT_APP_API_URL}/resumable/parts?fileId=${fileId}&uploadId=${uploadId}`,
+                {
+                    method: "GET",
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+                }
+            );
+
+            if (!partsResponse.ok) {
+                throw new Error("Failed to get uploaded parts");
+            }
+
+            const parts = await partsResponse.json();
+            console.log("Retrieved parts:", parts);
+
+            // 更新状态中的已上传部分
+            const formattedParts = parts.map(part => ({
+                partNumber: part.partNumber,
+                eTag: part.etag || part.eTag // 兼容两种可能的属性名
+            }));
+
+            setUploadedParts(formattedParts);
+
+            // 找到要上传的下一个部分编号
+            const uploadedPartNumbers = formattedParts.map(p => p.partNumber);
+            let nextPartNumber = 1;
+
+            if (uploadedPartNumbers.length > 0) {
+                // 在序列中查找缺口或获取最大值之后的下一个部分
+                const maxUploadedPart = Math.max(...uploadedPartNumbers);
+                nextPartNumber = maxUploadedPart + 1;
+            }
+
+            console.log("Resuming from part:", nextPartNumber);
+
+            // 从下一个部分恢复上传
+            await uploadChunks(fileRef.current, uploadId, fileId, nextPartNumber);
+        } catch (error) {
+            console.error("Error resuming upload:", error);
+            setIsUploading(false);
+        }
     };
 
     const cancelUpload = async () => {
         if (!fileId || !uploadId) return;
+        const formData = new FormData();
+        formData.append("fileId",fileId);
+        formData.append("uploadId",uploadId);
+        formData.append("folderId",folderId);
+        formData.append("userId",ownerId);
 
         try {
             await apiRequest(`${process.env.REACT_APP_API_URL}/resumable/abort`, {
                 method: "POST",
-                body: JSON.stringify({ fileId, uploadId }),
+                body:formData,
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
             });
             alert("Upload cancelled");
@@ -244,6 +320,7 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
             setFileId(null);
             setUploadedParts([]);
             setUploadProgress(0);
+            isPausedRef.current = false;
         }
     };
 

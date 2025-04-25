@@ -1,12 +1,12 @@
 package com.ruipeng.cloudstorage.entity;
 
-import lombok.Data;
+
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
 
-@Data
+
 @Component
 public class FileVersion {
     private Long id;

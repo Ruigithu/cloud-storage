@@ -3,8 +3,10 @@ package com.ruipeng.cloudstorage.controller;
 
 import com.amazonaws.services.s3.model.PartETag;
 import com.ruipeng.cloudstorage.entity.DownloadFileInfo;
+import com.ruipeng.cloudstorage.entity.File;
 import com.ruipeng.cloudstorage.entity.Folder;
 import com.ruipeng.cloudstorage.entity.User;
+import com.ruipeng.cloudstorage.mappers.FileMapper;
 import com.ruipeng.cloudstorage.service.FileS3Service;
 import com.ruipeng.cloudstorage.service.FolderS3Service;
 import org.apache.ibatis.javassist.NotFoundException;
@@ -33,14 +35,18 @@ import java.util.Map;
 public class FolderController {
 
     private final User user;
+    private final FileMapper fileMapper;
+    private final File file;
     private FolderS3Service folderService;
     private FileS3Service fileService;
 
     @Autowired
-    public FolderController(FolderS3Service folderService, FileS3Service fileService, User user) {
+    public FolderController(FolderS3Service folderService, FileS3Service fileService, User user, FileMapper fileMapper, File file) {
         this.folderService = folderService;
         this.fileService = fileService;
         this.user = user;
+        this.fileMapper = fileMapper;
+        this.file = file;
     }
     @GetMapping("/getRootFolders")
     public Map<String, Object> getRootFolders(@RequestParam Long userId) throws SQLException {
@@ -156,6 +162,7 @@ public class FolderController {
                     .body("fail uploading folder " + e.getMessage());
         }
     }
+
     @PostMapping("/folders-initiate-upload")
     public ResponseEntity<?> initiateUpload(
             @RequestParam("files") MultipartFile[] files,
@@ -219,34 +226,84 @@ public class FolderController {
 
     @PostMapping("/folders-abort-upload")
     public ResponseEntity<?> abortUpload(
-            @RequestBody List<Map<String, Object>> fileAborts) {
+            @RequestParam(value = "fileIds", required = false) Long[] fileIds,
+            @RequestParam(value = "uploadIds", required = false) String[] uploadIds,
+            @RequestParam(value = "parentFolderId", required = false) Long parentFolderId,
+            @RequestParam(value = "userId", required = false) Long userId) {
+
+        System.out.println("=== 接收到取消上传请求(FormData) ===");
+        System.out.println("文件ID数量: " + (fileIds != null ? fileIds.length : 0));
+
         List<Map<String, String>> results = new ArrayList<>();
 
-        for (Map<String, Object> abort : fileAborts) {
-            try {
-                Long fileId = null;
-                Object fileIdObj = abort.get("fileId");
-                if (fileIdObj instanceof Number) {
-                    fileId = ((Number) fileIdObj).longValue();
-                } else if (fileIdObj instanceof String) {
-                    fileId = Long.parseLong((String) fileIdObj);
+        if (fileIds == null || uploadIds == null || fileIds.length != uploadIds.length) {
+            return ResponseEntity.badRequest().body("Invalid request parameters");
+        }
+        long minFolderId=Integer.MAX_VALUE;
+        for (int i = 0; i < fileIds.length; i++) {
+                Long fileId = fileIds[i];
+                long folderId = fileMapper.getFileByUserIdAndFileId(userId, fileId).getFolderId();
+                if (folderId!=parentFolderId) {
+                    minFolderId = Math.min(folderId,minFolderId);
                 }
+        }
 
-                String uploadId = (String) abort.get("uploadId");
-                Long folderId = (Long) abort.get("folderId");
-                Long userId = (Long) abort.get("userId");
+        for (int i = 0; i < fileIds.length; i++) {
+            try {
+                Long fileId = fileIds[i];
+                String uploadId = uploadIds[i];
+
+                System.out.println("处理取消请求项: fileId=" + fileId + ", uploadId=" + uploadId
+                         + ", userId=" + userId+", minFolderId=" + minFolderId);
 
                 if (fileId != null && uploadId != null) {
-                    folderService.abortFolderUpload(fileId, uploadId,folderId,userId);
-                    results.add(Map.of("fileId", String.valueOf(fileId), "status", "success"));
+                    System.out.println("准备调用 abortFolderUpload 方法...");
+                    try {
+                        folderService.abortFolderUpload(fileId, uploadId);
+                        System.out.println("abortFolderUpload 方法调用成功");
+                        results.add(Map.of("fileId", String.valueOf(fileId), "status", "success"));
+                    } catch (Exception e) {
+                        System.err.println("abortFolderUpload 方法调用异常: " + e);
+                        e.printStackTrace();
+                        results.add(Map.of("fileId", String.valueOf(fileId), "status", "failed", "error", e.getMessage()));
+                    }
                 } else {
+                    System.err.println("fileId 或 uploadId 为空");
                     results.add(Map.of("fileId", String.valueOf(fileId), "status", "failed", "error", "Missing fileId or uploadId"));
                 }
             } catch (Exception e) {
-                results.add(Map.of("fileId", String.valueOf(abort.get("fileId")), "status", "failed", "error", e.getMessage()));
+                System.err.println("处理取消请求项异常: " + e);
+                e.printStackTrace();
+                results.add(Map.of("index", String.valueOf(i), "status", "failed", "error", e.getMessage()));
             }
         }
 
+        // 第二步：软删除文件夹
+        try {
+            int i = folderService.softDeleteFolder(minFolderId, userId);
+            if (i==0) {
+                System.err.println("Soft delete folder failed");
+                throw new RuntimeException("Failed to soft delete folder");
+            }
+            System.out.println("Folder soft deleted successfully");
+        } catch (Exception e) {
+            System.err.println("Error during soft delete: " + e.getMessage());
+            throw new RuntimeException("Folder soft delete failed: " + e.getMessage(), e);
+        }
+
+        // 第三步：物理删除文件夹
+        try {
+            int i = folderService.deleteFolder(minFolderId, userId);
+            if (i==0) {
+                System.err.println("Delete folder failed");
+                throw new RuntimeException("Failed to delete folder");
+            }
+            System.out.println("Folder deleted successfully");
+        } catch (Exception e) {
+            System.err.println("Error during folder deletion: " + e.getMessage());
+            throw new RuntimeException("Folder deletion failed: " + e.getMessage(), e);
+        }
+        System.out.println("处理完成，返回结果: " + results);
         return ResponseEntity.ok(results);
     }
 

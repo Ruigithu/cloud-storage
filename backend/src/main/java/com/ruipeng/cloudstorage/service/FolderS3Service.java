@@ -182,15 +182,34 @@ public class FolderS3Service {
     }
 
 
-    public void abortFolderUpload(Long fileId,String uploadId,Long folderId,Long userId) throws IOException {
+    public void abortFolderUpload(Long fileId, String uploadId) throws IOException {
 
-            if (fileId != null && uploadId != null) {
+
+        if (fileId != null && uploadId != null) {
+            try {
+                // 检查文件版本是否存在
                 FileVersion version = fileVersionMapper.getLatestVersion(fileId);
                 if (version == null || !version.getUploadId().equals(uploadId)) {
                     throw new RuntimeException("Invalid upload ID or file version");
                 }
-                s3StorageService.abortMultipartUpload(version.getStoragePath(), uploadId);
+
+                // 第一步：中止S3分块上传
+                try {
+                    s3StorageService.abortMultipartUpload(version.getStoragePath(), uploadId);
+                    System.out.println("S3 multipart upload aborted successfully");
+                } catch (Exception e) {
+                    System.err.println("Error aborting S3 multipart upload: " + e.getMessage());
+                    throw new RuntimeException("Failed to abort S3 upload: " + e.getMessage(), e);
+                }
+
+
+            } catch (Exception e) {
+                System.err.println("Error in abortFolderUpload: " + e.getMessage());
+                throw new IOException("Failed to abort folder upload: " + e.getMessage(), e);
             }
+        } else {
+            throw new IllegalArgumentException("fileId and uploadId cannot be null");
+        }
     }
     public void uploadFolderSmall(MultipartFile[] files, String[] relativePaths, Long userId, Long parentFolderId)
             throws IOException, SQLException, NotFoundException {

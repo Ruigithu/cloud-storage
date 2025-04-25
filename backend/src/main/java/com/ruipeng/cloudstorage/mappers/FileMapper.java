@@ -28,6 +28,7 @@ public interface FileMapper {
             @Result(property = "id", column = "id"),
             @Result(property = "name", column = "name"),
             @Result(property = "mimeType", column = "mime_type"),
+            @Result(property = "folderId", column = "folder_id"),
             @Result(property = "size", column = "size"),
             @Result(property = "ownerId", column = "owner_id"),
             @Result(property = "createdAt", column = "created_at"),
@@ -101,11 +102,11 @@ public interface FileMapper {
 
     @Update("UPDATE files " +
             "SET " +
-            "    mime_type = #{mimeType}, " +
             "    size = #{size}, " +
-            "    updated_at = #{updatedAt}, " +
+            "    updated_at = #{updatedAt} " +
             "WHERE id = #{id}")
     int updateFile(File file);
+
 
     @Select("SELECT * FROM files WHERE is_deleted = true AND updated_at < #{date}")
     List<File> getSoftDeletedFilesBefore(Instant date);

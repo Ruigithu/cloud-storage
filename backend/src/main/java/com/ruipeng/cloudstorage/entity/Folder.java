@@ -1,11 +1,10 @@
 package com.ruipeng.cloudstorage.entity;
 
-import lombok.Data;
+
 import org.postgresql.util.PGobject;
 
 import java.time.Instant;
 
-@Data
 public class Folder {
     private Long id;
     private String name;

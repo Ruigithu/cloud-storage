@@ -125,3 +125,229 @@
     background-color: rgba(255, 255, 255, 0.7);
     z-index: 10;
 }
+
+.editor-container {
+    width: 100%;
+    height: 100%;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    overflow: auto;
+}
+
+.editor-container.read-only {
+    background-color: #f8f8f8;
+    opacity: 0.7;
+}
+
+.editor-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background-color: #f0f0f0;
+    border-bottom: 1px solid #e0e0e0;
+    min-height: 50px;
+}
+
+.save-button, .download-button {
+    padding: 6px 12px;
+    margin-right: 10px;
+    background-color: #4285f4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.save-button:hover, .download-button:hover {
+    background-color: #3367d6;
+}
+
+.save-button:disabled {
+    background-color: #a9a9a9;
+    cursor: not-allowed;
+}
+
+.save-button.saving {
+    background-color: #ffa500;
+    cursor: progress;
+}
+
+.download-button {
+    background-color: #34a853;
+}
+
+.download-button:hover {
+    background-color: #2e8b57;
+}
+
+.download-button-large {
+    padding: 10px 20px;
+    background-color: #34a853;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 16px;
+    margin-top: 15px;
+    transition: background-color 0.2s;
+}
+
+.download-button-large:hover {
+    background-color: #2e8b57;
+}
+
+.save-status {
+    margin-left: 10px;
+    color: #666;
+    font-size: 14px;
+    flex-grow: 1;
+}
+
+.save-count {
+    margin-left: 5px;
+    color: #888;
+    font-size: 12px;
+}
+
+.unsaved-indicator {
+    display: flex;
+    align-items: center;
+    color: #f57c00;
+    font-size: 14px;
+    margin-right: 10px;
+}
+
+.unsaved-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #f57c00;
+    border-radius: 50%;
+    margin-right: 5px;
+    display: inline-block;
+}
+
+.preview-img {
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0 auto;
+    display: block;
+    padding: 20px;
+}
+
+.image-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+    background-color: #f5f5f5;
+}
+
+.unsupported-file-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.unsupported-file-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(245, 245, 245, 0.9);
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 2;
+}
+
+.unsupported-file-message p {
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #555;
+}
+
+/* Override Quill's default styles for better formatting */
+.ql-editor {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 12px 15px;
+}
+
+.ql-editor h1, .ql-editor h2, .ql-editor h3 {
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+.ql-editor p {
+    margin-bottom: 12px;
+}
+
+.ql-editor img {
+    max-width: 100%;
+    height: auto;
+}
+
+.ql-toolbar {
+    border-top: none !important;
+}
+.unsupported-file-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.7); /* 黑色半透明背景 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* 确保覆盖编辑器 */
+}
+
+.unsupported-file-message {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    max-width: 400px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.unsupported-file-message p {
+    margin: 0 0 20px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.download-button-large {
+    padding: 10px 20px;
+    font-size: 16px;
+    color: white;
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.download-button-large {
+    padding: 10px 20px;
+    background-color: #34a853;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 16px;
+    transition: background-color 0.2s;
+}
+
+.download-button-large:hover {
+    background-color: #2e8b57;
+}

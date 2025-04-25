@@ -1,12 +1,12 @@
 package com.ruipeng.cloudstorage.entity;
 
-import lombok.Data;
 
+
+import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
-
-@Data
+@Component
 public class Share {
 
     private UUID id;

@@ -1,12 +1,10 @@
 package com.ruipeng.cloudstorage.entity;
 
-import lombok.Data;
-import org.springframework.stereotype.Component;
 
+import org.springframework.stereotype.Component;
 import java.time.Instant;
 
 @Component
-@Data
 public class FilePermission {
     private Long id;
     private Long fileId;

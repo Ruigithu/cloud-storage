@@ -9,6 +9,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
     const [uploadedFiles, setUploadedFiles] = useState(0);
     const [failedFiles, setFailedFiles] = useState([]);
     const [retryQueue, setRetryQueue] = useState([]);
+    const cancelRef = React.useRef(false);
 
     // retry
     useEffect(() => {
@@ -256,6 +257,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
                 formData.append('relativePaths', relativePath);
             });
 
+
             formData.append('parentFolderId', parentId);
             formData.append('userId', userId);
 
@@ -274,6 +276,11 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
 
             const uploadInfo = await response.json();
             const fileUploads = uploadInfo.fileUploads || [];
+
+            console.log('所有相对路径:');
+            fileUploads.forEach((fileInfo, index) => {
+                console.log(`文件 ${index + 1}: ${fileInfo.relativePath}`);
+            });
 
             console.log('Initiated upload for files:', fileUploads);
 
@@ -304,12 +311,17 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
 
             // 开始上传每个文件
             for (let i = 0; i < fileUploads.length; i++) {
+                // Check if cancelled before starting each file
+                if (cancelRef.current) {
+                    console.log('Upload cancelled, stopping processing');
+                    break;
+                }
+
                 const fileInfo = fileUploads[i];
                 const relativePath = fileInfo.relativePath;
                 const file = fileArray.find(f => f.webkitRelativePath === relativePath);
 
                 if (file) {
-                    // 开始上传文件部分
                     await uploadFileParts(fileInfo, file);
                 }
             }
@@ -323,16 +335,25 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
 
 
     const uploadFileParts = async (fileInfo, file) => {
+        // Skip if already cancelled
+        if (cancelRef.current) return;
+
         const CHUNK_SIZE = 5 * 1024 * 1024;
         const fileId = fileInfo.fileId;
         const uploadId = fileInfo.uploadId;
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
         try {
-            const uploadPromises = [];
+            // Instead of creating all promises at once, process sequentially to allow cancellation
             const formattedPartETags = [];
 
             for (let partNumber = 1; partNumber <= totalChunks; partNumber++) {
+                // Check for cancellation before each part
+                if (cancelRef.current) {
+                    console.log(`Cancelled upload for ${file.name}`);
+                    return;
+                }
+
                 const start = (partNumber - 1) * CHUNK_SIZE;
                 const end = Math.min(start + CHUNK_SIZE, file.size);
                 const chunk = file.slice(start, end);
@@ -343,22 +364,31 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
                 chunkFormData.append('partNumber', partNumber);
                 chunkFormData.append('file', chunk);
 
-                const uploadPromise = apiRequest(
-                    `${process.env.REACT_APP_API_URL}/folders-upload-part`,
-                    {
-                        method: 'POST',
-                        body: chunkFormData
+                try {
+                    const response = await apiRequest(
+                        `${process.env.REACT_APP_API_URL}/folders-upload-part`,
+                        {
+                            method: 'POST',
+                            body: chunkFormData
+                        }
+                    );
+
+                    // Check for cancellation after each part
+                    if (cancelRef.current) {
+                        console.log(`Cancelled upload for ${file.name} after part ${partNumber}`);
+                        return;
                     }
-                ).then(async response => {
+
                     if (!response.ok) {
                         throw new Error(`Failed to upload part ${partNumber}, status: ${response.status}`);
                     }
-                    return response.json();
-                }).then(partETag => {
+
+                    const partETag = await response.json();
                     const formattedETag = {
                         partNumber: partNumber,
                         eTag: partETag.eTag || partETag.etag || partETag
                     };
+
                     formattedPartETags.push(formattedETag);
 
                     const updatedUploads = [...activeUploads];
@@ -368,18 +398,16 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
                         updatedUploads[uploadIndex].progress = partNumber / totalChunks;
                         setActiveUploads(updatedUploads);
                     }
-
-                    return partETag;
-                });
-
-                uploadPromises.push(uploadPromise);
+                } catch (error) {
+                    console.error(`Error uploading part ${partNumber} for ${file.name}:`, error);
+                    throw error;
+                }
             }
 
-            await Promise.all(uploadPromises);
-
-            // 所有分块上传成功后，完成上传
-            await completeUpload(fileId, uploadId, formattedPartETags);
-
+            // Only complete if not cancelled
+            if (!cancelRef.current) {
+                await completeUpload(fileId, uploadId, formattedPartETags);
+            }
         } catch (error) {
             console.error(`Error uploading file parts for ${file.name}:`, error);
 
@@ -400,6 +428,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
 
     const completeUpload = async (fileId, uploadId, partETags) => {
         console.log("Calling completeUpload with: ", partETags);
+        if (cancelRef.current) return;
 
         const payload = {
             fileId,
@@ -446,28 +475,36 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
 
     const cancelUpload = async () => {
         if (!isUploading || activeUploads.length === 0) return;
+        // Set the cancellation flag
+        cancelRef.current = true;
 
         try {
-            const fileAborts = activeUploads.map(upload => ({
-                fileId: upload.fileId,
-                uploadId: upload.uploadId,
-                folderId:parentId,
-                userId:userId
-            }));
+            // 创建FormData对象
+            const formData = new FormData();
+
+            // 添加每个文件的取消信息
+            activeUploads.forEach(upload => {
+                formData.append("fileIds", upload.fileId);
+                formData.append("uploadIds", upload.uploadId);
+
+            });
+            formData.append("userId", userId);
+            formData.append("parentFolderId",parentId);
 
             const response = await apiRequest(
                 `${process.env.REACT_APP_API_URL}/folders-abort-upload`,
                 {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(fileAborts)
+                    body: formData
+                    // FormData会自动设置正确的Content-Type，不需要手动设置headers
                 }
             );
             if (response.ok) {
                 setIsUploading(false);
                 setActiveUploads([]);
+
+                setRetryQueue([]);
+                setFailedFiles([]);
                 alert('Upload cancelled');
             }
         } catch (error) {

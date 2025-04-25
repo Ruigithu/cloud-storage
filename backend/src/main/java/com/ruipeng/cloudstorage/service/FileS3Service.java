@@ -4,14 +4,18 @@ import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.PartETag;
 import com.amazonaws.services.s3.model.PartSummary;
 import com.amazonaws.services.s3.model.UploadPartResult;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruipeng.cloudstorage.entity.*;
+import com.ruipeng.cloudstorage.entity.File;
+import com.ruipeng.cloudstorage.entity.FilePermission;
 import com.ruipeng.cloudstorage.mappers.FileMapper;
 import com.ruipeng.cloudstorage.mappers.FilePermissionMapper;
 import com.ruipeng.cloudstorage.mappers.FileVersionMapper;
 import com.ruipeng.cloudstorage.mappers.ShareMapper;
 import com.ruipeng.cloudstorage.util.SecurityUtil;
 import org.apache.poi.hwpf.HWPFDocument;
+import org.apache.poi.hwpf.converter.WordToHtmlConverter;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
@@ -26,10 +30,13 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.zwobble.mammoth.DocumentConverter;
+import org.zwobble.mammoth.Result;
 
-import java.io.ByteArrayInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -38,6 +45,11 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.TransformerFactory;
+
+
+import static org.zwobble.mammoth.internal.conversion.DocumentToHtml.convertToHtml;
 
 @Service
 public class FileS3Service {
@@ -47,16 +59,18 @@ public class FileS3Service {
     private final FileVersionMapper fileVersionMapper;
     private final FilePermissionMapper filePermissionMapper;
     private final S3StorageService s3StorageService;
+    private final FileService fileService;
 
     @Autowired
     public FileS3Service(FileMapper fileMapper, FileVersionMapper fileVersionMapper, FilePermissionMapper filePermissionMapper,
-                         File file, ShareMapper shareMapper, S3StorageService s3StorageService) {
+                         File file, ShareMapper shareMapper, S3StorageService s3StorageService, FileService fileService) {
         this.fileMapper = fileMapper;
         this.fileVersionMapper = fileVersionMapper;
         this.filePermissionMapper = filePermissionMapper;
         this.file = file;
         this.shareMapper = shareMapper;
         this.s3StorageService = s3StorageService;
+        this.fileService = fileService;
     }
 @Transactional
     public Map<String, Object> initiateResumableUpload(Long ownerId, Long folderId, String fileName, String mimeType, Long fileSize) throws IOException {
@@ -241,6 +255,7 @@ public class FileS3Service {
     }
 
     public File uploadNewVersion(MultipartFile file, Long ownerId, Long fileId) throws IOException {
+        // 1. Validate file exists and check permissions
         File existingFile = fileMapper.getFileById(fileId);
         if (existingFile == null) {
             throw new RuntimeException("File does not exist");
@@ -248,54 +263,99 @@ public class FileS3Service {
 
         FilePermission permission = filePermissionMapper.findByFileIdAndUserId(fileId, ownerId);
         if (permission == null || permission.getPermission() != PermissionType.ADMIN) {
-            throw new RuntimeException("No permission");
+            throw new RuntimeException("No permission to update this file");
         }
 
-        String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null) {
-            throw new IllegalArgumentException("File name cannot be null");
+        // 2. Update file metadata but retain original file ID
+        String originalMimeType = existingFile.getMimeType();
+        String newMimeType = file.getContentType();
+
+        // Preserve original mime type for certain file formats when uploading updated content
+        if (originalMimeType != null && originalMimeType.contains("application/vnd.openxmlformats-officedocument.wordprocessingml.document") &&
+                (newMimeType.contains("text/html") || newMimeType.contains("application/json"))) {
+            // Keep the original DOCX mime type
+            newMimeType = originalMimeType;
+        } else if (originalMimeType != null && originalMimeType.contains("application/msword") &&
+                (newMimeType.contains("text/html") || newMimeType.contains("application/json"))) {
+            // Keep the original DOC mime type
+            newMimeType = originalMimeType;
         }
 
-        String subPath = "";
-        String fileName = originalFilename;
-
-        if (originalFilename.contains("/") || originalFilename.contains("\\")) {
-            Path fullPath = Paths.get(originalFilename);
-            fileName = fullPath.getFileName().toString();
-            if (fullPath.getParent() != null) {
-                subPath = fullPath.getParent().toString();
-            }
-        }
-
-        String fileExtension = "";
-        int lastDotIndex = fileName.lastIndexOf(".");
-        if (lastDotIndex > 0) {
-            fileExtension = fileName.substring(lastDotIndex);
-        }
-
-        existingFile.setMimeType(file.getContentType());
+        existingFile.setMimeType(newMimeType);
         existingFile.setSize(file.getSize());
-        fileMapper.updateFile(existingFile);
+        existingFile.setUpdatedAt(Instant.now());
 
-        int versionNumber = fileVersionMapper.getLatestVersionNumber(fileId) + 1;
-        String s3Key = String.format("%s/%s/%s/%s_v%d%s",
-                ownerId.toString(),
-                existingFile.getFolderId(),
-                subPath.replace("\\", "/"),
-                fileId.toString(),
-                versionNumber,
-                fileExtension);
+        // 3. Get the latest version number and increment
+        int currentVersionNumber = fileVersionMapper.getLatestVersionNumber(fileId);
+        int newVersionNumber = currentVersionNumber + 1;
+
+        // 4. Generate new S3 key with version number
+        FileVersion latestVersion = fileVersionMapper.getLatestVersion(fileId);
+        String previousPath = latestVersion.getStoragePath();
+
+        // Ensure extension is preserved correctly
+        String extension = getFileExtension(file.getOriginalFilename());
+        if (extension == null || extension.isEmpty()) {
+            extension = getFileExtensionFromMimeType(newMimeType);
+        }
+
+        // Preserve original extension for certain file types
+        if (originalMimeType != null &&
+                (originalMimeType.contains("application/vnd.openxmlformats-officedocument.wordprocessingml.document") ||
+                        originalMimeType.contains("application/msword"))) {
+            String originalExtension = previousPath.substring(previousPath.lastIndexOf('.'));
+            extension = originalExtension;
+        }
+
+        String s3Key;
+        if (previousPath.contains("_v")) {
+            s3Key = previousPath.replaceAll("_v\\d+\\.", "_v" + newVersionNumber + ".");
+        } else {
+            String basePath = previousPath.substring(0, previousPath.lastIndexOf('.'));
+            s3Key = basePath + "_v" + newVersionNumber + extension;
+        }
+
+        // 5. Upload file to S3
         s3StorageService.uploadFile(file, s3Key);
 
+        // 6. Insert new file version record
         FileVersion version = new FileVersion();
         version.setFileId(fileId);
-        version.setVersionNumber(versionNumber);
+        version.setVersionNumber(newVersionNumber);
         version.setStoragePath(s3Key);
         version.setSize(file.getSize());
         version.setCreatedBy(ownerId);
+        version.setCreatedAt(Instant.now());
         fileVersionMapper.insertVersion(version);
 
+        // 7. Update database with new file metadata
+        fileMapper.updateFile(existingFile);
+
         return existingFile;
+    }
+
+    private String getFileExtensionFromMimeType(String mimeType) {
+        if (mimeType == null) return ".txt";
+
+        Map<String, String> mimeToExt = Map.of(
+                "application/json", ".json",
+                "text/plain", ".txt",
+                "text/html", ".html",
+                "image/png", ".png",
+                "image/jpeg", ".jpg",
+                "application/pdf", ".pdf",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx",
+                "application/msword", ".doc"
+        );
+
+        return mimeToExt.getOrDefault(mimeType, ".txt");
+    }
+
+    private String getFileExtension(String fileName) {
+        if (fileName == null || !fileName.contains(".")) {
+            return "";
+        }
+        return fileName.substring(fileName.lastIndexOf('.'));
     }
 
     public List<File> getFiles(long ownerId, long folderId) {
@@ -391,74 +451,7 @@ public class FileS3Service {
         return deletedFiles;
     }
 
-    public ResponseEntity<?> getFileByUserIdAndFileId(long ownerId, long fileId) {
-        try {
-            FileVersion version = fileVersionMapper.getLatestVersion(fileId);
-            if (version == null) {
-                return ResponseEntity.notFound().build();
-            }
 
-            File file = fileMapper.getFileByUserIdAndFileId(ownerId, fileId);
-            if (file == null) {
-                return ResponseEntity.notFound().build();
-            }
 
-            String s3Key = version.getStoragePath();
-            if (!s3StorageService.doesFileExist(s3Key)) {
-                return ResponseEntity.notFound().build();
-            }
 
-            byte[] fileContent = s3StorageService.downloadFile(s3Key);
-            String contentType = file.getMimeType() != null ? file.getMimeType() : "application/octet-stream";
-
-            if (isWordDocument(contentType, version.getStoragePath())) {
-                try {
-                    String convertedText;
-                    if (version.getStoragePath().endsWith(".docx")) {
-                        XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(fileContent));
-                        StringBuilder text = new StringBuilder();
-                        for (XWPFParagraph paragraph : document.getParagraphs()) {
-                            for (XWPFRun run : paragraph.getRuns()) {
-                                text.append(run.getText(0)).append(" ");
-                            }
-                            text.append("\n");
-                        }
-                        convertedText = text.toString();
-                        document.close();
-                    } else {
-                        HWPFDocument document = new HWPFDocument(new ByteArrayInputStream(fileContent));
-                        convertedText = document.getDocumentText();
-                        document.close();
-                    }
-                    return ResponseEntity.ok()
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .body(convertedText);
-                } catch (Exception e) {
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body("Failed to convert file: " + e.getMessage());
-                }
-            } else if (contentType.startsWith("text/") || contentType.equals("application/json")) {
-                String textContent = new String(fileContent, StandardCharsets.UTF_8);
-                return ResponseEntity.ok()
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(textContent);
-            } else {
-                String fileName = s3Key.substring(s3Key.lastIndexOf('/') + 1);
-                return ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(contentType))
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
-                        .body(fileContent);
-            }
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error reading file: " + e.getMessage());
-        }
-    }
-
-    private boolean isWordDocument(String contentType, String filePath) {
-        return contentType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document") ||
-                contentType.equals("application/msword") ||
-                filePath.endsWith(".docx") ||
-                filePath.endsWith(".doc");
-    }
 }
