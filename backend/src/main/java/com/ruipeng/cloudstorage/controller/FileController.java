@@ -87,7 +87,7 @@ public class FileController {
             @RequestParam("ownerId") long ownerId,
             @RequestParam("fileId") long fileId) {
         try {
-            // 1. 验证文件存在性和权限
+            // 验证文件存在性和权限
             File existingFile = fileMapper.getFileById(fileId);
             if (existingFile == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("File does not exist");
@@ -98,17 +98,17 @@ public class FileController {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No permission to access this file");
             }
 
-            // 2. 获取最新版本的存储路径
+            // 获取最新版本的存储路径
             FileVersion latestVersion = fileVersionMapper.getLatestVersion(fileId);
             String storagePath = latestVersion.getStoragePath();
 
-            // 3. 从S3下载DOCX文件
-            byte[] docxInputStream = s3StorageService.downloadFile(storagePath);
+            // 从S3下载DOCX文件
+            byte[] docxBytes = s3StorageService.downloadFile(storagePath);
 
-            // 4. 将DOCX转换为HTML
-            String htmlContent = convertDocxToHtmlContent(docxInputStream);
+            // 使用Mammoth库转换DOCX为HTML
+            String htmlContent = convertDocxToHtmlUsingMammoth(docxBytes);
 
-            // 5. 创建响应
+            // 创建响应
             Map<String, Object> response = new HashMap<>();
             response.put("htmlContent", htmlContent);
             response.put("fileName", existingFile.getName());
@@ -127,18 +127,28 @@ public class FileController {
         // 使用docx4j库转换DOCX为HTML
         WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage.load(convertBytesToDocxFile(docxInputStream));
 
+        // 设置字体映射器来处理缺失字体问题
+        IdentityPlusMapper fontMapper = new IdentityPlusMapper();
+        wordMLPackage.setFontMapper(fontMapper);
+
         // 配置HTML输出选项
         HTMLSettings htmlSettings = Docx4J.createHTMLSettings();
         htmlSettings.setWmlPackage(wordMLPackage);
-        htmlSettings.setImageDirPath("images/");
-        htmlSettings.setImageTargetUri("images/");
+        htmlSettings.setImageDirPath(null); // 不保存图片
+        htmlSettings.setImageTargetUri(null);
 
         // 禁用CSS处理以便更好地与Quill兼容
-        htmlSettings.setUserCSS(String.valueOf(false));
+            htmlSettings.setUserCSS(String.valueOf(false));
 
-        // 转换为HTML
+        // 设置输出方法
+        htmlSettings.setOpcPackage(wordMLPackage);
+
+        // 简化HTML输出并提高与Quill的兼容性
         ByteArrayOutputStream htmlOutputStream = new ByteArrayOutputStream();
-        Docx4J.toHTML(htmlSettings, htmlOutputStream, Docx4J.FLAG_EXPORT_PREFER_XSL);
+
+        // 使用FLAG_EXPORT_PREFER_NONXSLT可能会减少问题
+        Docx4J.toHTML(htmlSettings, htmlOutputStream, Docx4J.FLAG_EXPORT_PREFER_NONXSL);
+
 
         // 获取HTML内容
         String htmlContent = htmlOutputStream.toString("UTF-8");
@@ -146,9 +156,69 @@ public class FileController {
         // 清理HTML，只保留body内容以便与Quill兼容
         htmlContent = extractBodyContent(htmlContent);
 
+        // 执行额外的HTML清理
+        htmlContent = cleanHtmlForQuill(htmlContent);
+
         return htmlContent;
     }
 
+    // 提取body内容，确保只获取有用的部分
+    private String extractBodyContent(String htmlContent) {
+        // 先尝试提取<body>标签内的内容
+        Pattern bodyPattern = Pattern.compile("<body[^>]*>(.*?)</body>", Pattern.DOTALL);
+        Matcher bodyMatcher = bodyPattern.matcher(htmlContent);
+        if (bodyMatcher.find()) {
+            return bodyMatcher.group(1);
+        }
+
+        // 如果没有body标签，返回原始内容
+        return htmlContent;
+    }
+
+    // 清理HTML内容使其适合Quill编辑器
+    private String cleanHtmlForQuill(String htmlContent) {
+        // 移除docx4j生成的不需要的样式和脚本
+        htmlContent = htmlContent.replaceAll("<style[^>]*>.*?</style>", "");
+        htmlContent = htmlContent.replaceAll("<script[^>]*>.*?</script>", "");
+
+        // 移除Word特有的XML命名空间属性
+        htmlContent = htmlContent.replaceAll(" xmlns:w=\"[^\"]*\"", "");
+        htmlContent = htmlContent.replaceAll(" xmlns:o=\"[^\"]*\"", "");
+
+        // 简化样式属性，移除复杂的样式定义
+        htmlContent = htmlContent.replaceAll(" style=\"[^\"]*\"", "");
+        htmlContent = htmlContent.replaceAll(" class=\"[^\"]*\"", "");
+
+        // 处理HTML实体
+        htmlContent = htmlContent.replace("&nbsp;", " ")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&amp;", "&")
+                .replace("&apos;", "'")
+                .replace("&quot;", "\"");
+
+        // 处理特殊Unicode字符
+        htmlContent = htmlContent.replace("\u2018", "'")
+                .replace("\u2019", "'")
+                .replace("\u201C", "\"")
+                .replace("\u201D", "\"")
+                .replace("\u2013", "-")
+                .replace("\u2014", "--");
+
+        // 确保标签正确闭合
+        htmlContent = htmlContent.replaceAll("<br\\s*>", "<br/>");
+        htmlContent = htmlContent.replaceAll("<hr\\s*>", "<hr/>");
+        htmlContent = htmlContent.replaceAll("<img([^>]*)>", "<img$1/>");
+
+        // 移除空段落和多余的换行
+        htmlContent = htmlContent.replaceAll("<p>\\s*</p>", "");
+        htmlContent = htmlContent.replaceAll("\\n\\s*\\n", "\n");
+
+        // 移除Word特有的注释标记
+        htmlContent = htmlContent.replaceAll("<!--\\[if.*?\\]>.*?<!\\[endif\\]-->", "");
+
+        return htmlContent;
+    }
     public java.io.File convertBytesToDocxFile(byte[] docxBytes) throws IOException {
         // Create a temporary file with the .docx extension
        java.io.File docxFile = java.io.File.createTempFile("document_", ".docx");
@@ -278,6 +348,77 @@ public class FileController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to convert HTML to DOCX: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/convertDocxToHtmlMammoth")
+    public ResponseEntity<?> convertDocxToHtmlMammoth(
+            @RequestParam("ownerId") long ownerId,
+            @RequestParam("fileId") long fileId) {
+        try {
+            // 验证文件存在性和权限
+            File existingFile = fileMapper.getFileById(fileId);
+            if (existingFile == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("File does not exist");
+            }
+
+            FilePermission permission = filePermission.findByFileIdAndUserId(fileId, ownerId);
+            if (permission == null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No permission to access this file");
+            }
+
+            // 获取最新版本的存储路径
+            FileVersion latestVersion = fileVersionMapper.getLatestVersion(fileId);
+            String storagePath = latestVersion.getStoragePath();
+
+            // 从S3下载DOCX文件
+            byte[] docxBytes = s3StorageService.downloadFile(storagePath);
+
+            // 使用Mammoth库转换DOCX为HTML
+            String htmlContent = convertDocxToHtmlUsingMammoth(docxBytes);
+
+            // 创建响应
+            Map<String, Object> response = new HashMap<>();
+            response.put("htmlContent", htmlContent);
+            response.put("fileName", existingFile.getName());
+            response.put("mimeType", existingFile.getMimeType());
+            response.put("fileId", fileId);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to convert DOCX to HTML: " + e.getMessage());
+        }
+    }
+    // 在FileController.java中添加这个替代方法
+    private String convertDocxToHtmlUsingMammoth(byte[] docxBytes) throws Exception {
+        // 创建临时文件
+        java.io.File docxFile = convertBytesToDocxFile(docxBytes);
+
+        // 使用Mammoth库进行转换，遵循正确的样式映射语法
+        org.zwobble.mammoth.DocumentConverter converter = new org.zwobble.mammoth.DocumentConverter()
+                // 段落样式映射
+                .addStyleMap("p[style-name='Heading 1'] => h1:fresh")
+                .addStyleMap("p[style-name='Heading 2'] => h2:fresh")
+                .addStyleMap("p[style-name='Heading 3'] => h3:fresh")
+                .addStyleMap("p[style-name='Heading 4'] => h4:fresh")
+                .addStyleMap("p[style-name='Heading 5'] => h5:fresh")
+                .addStyleMap("p[style-name='Heading 6'] => h6:fresh")
+                // 行内样式映射
+                .addStyleMap("r[style-name='Strong'] => strong")
+                .addStyleMap("r[style-name='Emphasis'] => em")
+                .addStyleMap("r[style-name='Underline'] => u");
+
+        // 执行转换
+        org.zwobble.mammoth.Result<String> result = converter.convertToHtml(docxFile);
+        String htmlContent = result.getValue();
+
+        // 打印警告
+        for (String warning : result.getWarnings()) {
+            System.out.println("Mammoth warning: " + warning);
+        }
+
+        return htmlContent;
     }
 
     @PostMapping("/uploadNewFile")
@@ -486,15 +627,6 @@ public class FileController {
     }
 
 
-    private String extractBodyContent(String htmlContent) {
-        // Extract content between <body> tags for compatibility with Quill
-        Pattern pattern = Pattern.compile("<body[^>]*>(.*?)</body>", Pattern.DOTALL);
-        Matcher matcher = pattern.matcher(htmlContent);
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-        return htmlContent;
-    }
     @PostMapping("/upload")
     public ResponseEntity<File> uploadFile(@RequestParam("file") MultipartFile uploadFile,@RequestParam("userId")long ownerId,@RequestParam("folderId")long folderId) throws IOException {
         if (folderId==-1){

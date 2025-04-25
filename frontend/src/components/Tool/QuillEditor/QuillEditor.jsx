@@ -359,23 +359,26 @@ const QuillEditor = ({ documentId, userId }) => {
                         size: data.size
                     });
 
-                    if (data.mimeType.includes('application/json')) {
-                        const delta = JSON.parse(data.content);
-                        if (quillRef.current) {
-                            quillRef.current.setContents(delta);
-                        }
-                    } else if (data.mimeType.includes('text/html')) {
-                        if (quillRef.current) {
-                            quillRef.current.root.innerHTML = data.content;
-                        }
-                    } else if (isEditableFileType(data.mimeType)) {
-                        // Handle other editable text formats
-                        if (quillRef.current) {
-                            if (data.content) {
-                                quillRef.current.setText(data.content);
-                            } else {
-                                quillRef.current.setText('');
+                    if (data.mimeType && (
+                        data.mimeType.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+                        data.mimeType.includes('application/msword')
+                    )) {
+                        const mammothResponse = await apiRequest(
+                            `${process.env.REACT_APP_API_URL}/convertDocxToHtmlMammoth?ownerId=${userId}&fileId=${documentId}`,
+                            {
+                                method: 'GET',
+                                credentials: 'include'
                             }
+                        );
+
+                        if (!mammothResponse.ok) {
+                            throw new Error(`Failed to convert document with Mammoth: ${mammothResponse.status}`);
+                        }
+
+                        const convertedData = await mammothResponse.json();
+                        if (quillRef.current) {
+                            quillRef.current.setText('');
+                            quillRef.current.clipboard.dangerouslyPasteHTML(convertedData.htmlContent);
                         }
                     } else {
                         setIsUnsupportedFile(true);
