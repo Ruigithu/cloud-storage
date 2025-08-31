@@ -1,0 +1,120 @@
+[33mcommit a8b8584c03f49d41640cf6f6b5e90a0ed3962ee0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mnew-computer-develop[m[33m)[m
+Author: Rui <jadeisme667@gmail.com>
+Date:   Sun Aug 31 21:52:56 2025 +0100
+
+    feat: Secure and deploy full-stack application
+
+[33mcommit 48a58da808510f7bc29e9f6b8260a279ffa9678b[m
+Author: Rui <jadeisme667@gmail.com>
+Date:   Sun Aug 31 21:32:23 2025 +0100
+
+    feat: Initial full-stack deployment to AWS
+
+[33mcommit 38532ea57757e8b1d91810dcc0e756d229555b12[m[33m ([m[1;31morigin/develop[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mdevelop[m[33m)[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Fri Apr 25 10:51:28 2025 +0100
+
+    fix the bug of onine editing
+
+[33mcommit 58673fcb1be36570dea04491ac85da3e47a6eaac[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Fri Apr 25 09:18:55 2025 +0100
+
+    add resumable upload funtion
+
+[33mcommit 035ffd441821a1c14b375d31197460a4b9aebfa0[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Sat Apr 19 17:52:33 2025 +0100
+
+    Add .env to .gitignore
+
+[33mcommit e29135ff21a3781b7fbeaddd97068ec44c2d77ef[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Sat Apr 19 17:47:02 2025 +0100
+
+    finish resumable upload files and folders with S3
+
+[33mcommit 909e0ba4cf264530a60ecea2c54a8652bda76b7b[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Thu Apr 3 09:53:43 2025 +0100
+
+    JWT and S3
+
+[33mcommit 949d78c0cbe278b58d4a57d8d0921855355574e1[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Wed Mar 19 16:14:40 2025 +0000
+
+    README file added
+
+[33mcommit 85b6805cdce304158b4c6078fefe9522493e0098[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Wed Mar 19 15:22:36 2025 +0000
+
+    some changes on UI
+
+[33mcommit cc697b475d70fa3cfd5714d4ddb978143ce02ae1[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Wed Mar 19 15:18:23 2025 +0000
+
+    some changes on UI
+
+[33mcommit 549ba86e42850160c52bce4b164c412a6b45172d[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Sat Mar 1 15:56:46 2025 +0000
+
+    complete cancel share and restore share function
+
+[33mcommit dd9389b42b5bd79cbf1a439b412db11b21269406[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Sun Feb 9 14:08:26 2025 +0000
+
+    complete creating share link and visit share link when unlogin
+
+[33mcommit 7801d2944710719c4173c3ef2a892a566778b4ca[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Tue Feb 4 14:31:17 2025 +0000
+
+    complete upload,download,delete files and folders,create folders
+
+[33mcommit 0c25afb6e6dad46f021f5ad57bea084333473fe4[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Fri Jan 17 18:38:32 2025 +0000
+
+    add 'upload-file' function
+
+[33mcommit 8a96e339fb4dd3e83d75dc6bb0ae2cecccc3ee3b[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Wed Jan 15 19:21:11 2025 +0000
+
+    update the login and signup function
+
+[33mcommit 65d360b342cf84cdff7511690929ae5c430dfb1d[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Mon Jan 13 13:07:27 2025 +0000
+
+    home page has been constructed
+
+[33mcommit 9e62e2b4663f5919bf598edca623eb2c85a63a89[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Sun Jan 12 15:07:48 2025 +0000
+
+    typescript is changed to javascript
+
+[33mcommit 1c14fec160157526709166e400b90eaf498a7903[m
+Merge: 0456113 838587d
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Sun Jan 12 12:53:28 2025 +0000
+
+    Resolved merge conflicts and completed the merge
+
+[33mcommit 04561137df19c005f720662d14d31e06823e9f77[m
+Author: Ruigithu <jadeisme667@gmail.com>
+Date:   Sun Jan 12 12:44:38 2025 +0000
+
+    initial project setup
+
+[33mcommit 838587d550c912c1b8951f56e657af016e9f5af5[m
+Author: Ruigithu <162542860+Ruigithu@users.noreply.github.com>
+Date:   Mon Jan 6 21:01:20 2025 +0000
+
+    Initial commit
