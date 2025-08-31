@@ -1,0 +1,132 @@
+# 工作流的名称
+name: Deploy Full-Stack Application to AWS
+
+# 触发条件：当代码被推送到 new-computer-develop 分支时触发
+on:
+  push:
+    branches: [ "new-computer-develop" ]
+
+# 环境变量，方便在多个步骤中复用
+env:
+  AWS_REGION: us-east-1  # 你的 AWS 区域，如果不同请修改
+  ECR_REPOSITORY_NAME: cloud-storage-backend # 你在 ECR 创建的仓库名
+
+jobs:
+  # --- 前端部署任务 ---
+  deploy-frontend:
+    # 运行环境
+    runs-on: ubuntu-latest
+
+    # 任务步骤
+    steps:
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. 配置 AWS 凭证
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 3. 设置 Node.js 环境
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # 使用 Node.js 18 版本，如果你的项目需要其他版本请修改
+
+      # 4. 安装前端依赖
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: ./frontend # 指定在 frontend 目录下执行
+
+      # 5. 构建前端项目
+      - name: Build frontend project
+        run: npm run build
+        working-directory: ./frontend # 指定在 frontend 目录下执行
+
+      # 6. 将构建好的文件同步到 S3
+      - name: Deploy frontend to S3
+        run: aws s3 sync ./frontend/build s3://${{ secrets.AWS_S3_BUCKET_NAME }} --delete
+
+      # 7. 使 CloudFront 缓存失效，以便用户能立刻看到最新版本
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+
+  # --- 后端部署任务 ---
+  deploy-backend:
+    # 运行环境
+    runs-on: ubuntu-latest
+
+    # 任务步骤
+    steps:
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. 设置 JDK 环境
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. 配置 AWS 凭证
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 4. 登录到 AWS ECR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # 5. 定义 Docker 镜像的标签
+      - name: Define image tag
+        id: define-tag
+        run: echo "IMAGE_TAG=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
+
+      # 6. 构建并标记 Docker 镜像
+      - name: Build and tag Docker image
+        run: |
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }} .
+          docker tag ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }} ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:latest
+
+      # 7. 推送 Docker 镜像到 ECR
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:latest
+
+      # 8. 生成 Elastic Beanstalk 部署所需的文件
+      - name: Generate Dockerrun.aws.json
+        run: |
+          echo '{' > Dockerrun.aws.json
+          echo '  "AWSEBDockerrunVersion": "1",' >> Dockerrun.aws.json
+          echo '  "Image": {' >> Dockerrun.aws.json
+          echo '    "Name": "${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }}",' >> Dockerrun.aws.json
+          echo '    "Update": "true"' >> Dockerrun.aws.json
+          echo '  },' >> Dockerrun.aws.json
+          echo '  "Ports": [' >> Dockerrun.aws.json
+          echo '    {' >> Dockerrun.aws.json
+          echo '      "ContainerPort": 8080' >> Dockerrun.aws.json
+          echo '    }' >> Dockerrun.aws.json
+          echo '  ]' >> Dockerrun.aws.json
+          echo '}' >> Dockerrun.aws.json
+
+      # 9. 部署到 Elastic Beanstalk
+      - name: Deploy to Elastic Beanstalk
+        uses: einaregilsson/beanstalk-deploy@v20
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          application_name: ${{ secrets.EB_APPLICATION_NAME }}
+          environment_name: ${{ secrets.EB_ENVIRONMENT_NAME }}
+          version_label: "v-${{ env.IMAGE_TAG }}"
+          region: ${{ env.AWS_REGION }}
+          deployment_package: Dockerrun.aws.json
