@@ -132,7 +132,7 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
             console.error("Error in uploadChunks:", error);
             setIsUploading(false);
         }
-    }, [uploadedParts]);
+    }, [uploadedParts, CHUNK_SIZE, uploadPart, completeUpload]);
 
     // 上传单个部分的函数
     const uploadPart = (chunk, fileId, uploadId, partNumber) => {

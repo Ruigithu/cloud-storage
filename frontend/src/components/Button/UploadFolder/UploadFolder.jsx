@@ -22,7 +22,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
             // 重新开始上传这个文件
             uploadFileParts(retryFile.fileInfo, retryFile.file);
         }
-    }, [retryQueue, isUploading]);
+    }, [retryQueue, isUploading,uploadFileParts]);
 
     // monitor progress
     useEffect(() => {
@@ -33,7 +33,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
 
             return () => clearInterval(interval);
         }
-    }, [activeUploads]);
+    }, [activeUploads,checkUploadStatus]);
 
 
     const checkUploadStatus = async () => {

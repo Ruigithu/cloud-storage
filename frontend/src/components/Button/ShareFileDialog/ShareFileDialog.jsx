@@ -41,6 +41,8 @@ function ShareFileDialog({ fileId }) {
             case 'never':
                 expiresAt = null;
                 break;
+            default:
+                break;
         }
 
         try {
