@@ -9,7 +9,7 @@ on:
 # 环境变量，方便在多个步骤中复用
 env:
   AWS_REGION: us-east-1  # 你的 AWS 区域，如果不同请修改
-  ECR_REPOSITORY_NAME: cloud-storage-backend # 你在 ECR 创建的仓库名
+  ECR_REPOSITORY_NAME: rui667_cloud-storage/backend # 你在 ECR 创建的仓库名
 
 jobs:
   # --- 前端部署任务 ---
