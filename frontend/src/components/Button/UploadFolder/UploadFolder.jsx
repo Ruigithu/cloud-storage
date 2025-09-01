@@ -101,7 +101,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
                 }]);
             }
         }
-    });
+    },[]);
 
     // retry
     useEffect(() => {
@@ -161,7 +161,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
         } catch (error) {
             console.error('Error checking upload status:', error);
         }
-    });
+    },[]);
 
     // monitor progress
     useEffect(() => {

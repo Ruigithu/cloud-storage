@@ -23,7 +23,7 @@ function Bin(){
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    const fetchFoldersAndFiles = async () => {
+    const fetchFoldersAndFiles =useCallback( async () => {
         try {
             const [fileResponse, folderResponse] = await Promise.all([
                 apiRequest(`${process.env.REACT_APP_API_URL}/getAllDeletedFiles?folderId=${rootFolderId}&ownerId=${localStorage.getItem('userId')}`, {
@@ -77,7 +77,7 @@ function Bin(){
         } catch (error) {
             console.error('Error fetching data:', error);
         }
-    };
+    },[]);
 
     useEffect(() => {
         if (actualUserId) {

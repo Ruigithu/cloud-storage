@@ -44,7 +44,7 @@ const QuillEditor = ({ documentId, userId }) => {
             return op;
         }));
         return { ops: updatedOps };
-    });
+    },[]);
 
     // Download file function
     const downloadFile = async () => {

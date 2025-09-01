@@ -1,5 +1,5 @@
 
-import React,{useState,useEffect} from "react";
+import React, {useState, useEffect, useCallback} from "react";
 import {useDispatch } from 'react-redux';
 import {setUserInfo} from "../../components/Tool/UserInfo/userSlice";
 import {useNavigate} from "react-router-dom";
@@ -21,7 +21,7 @@ function Home() {
     const navigate =useNavigate();
     const [navigationPath, setNavigationPath] = useState([{ id: 1, name: 'root' }]);
     //get userid, restore it in localstorage
-    const fetchUserId = async()=>{
+    const fetchUserId =useCallback( async()=>{
         try {
             const response = await apiRequest(`${process.env.REACT_APP_API_URL}/getUserInfo`,
                 {
@@ -43,7 +43,7 @@ function Home() {
         }catch (error){
             console.error('Failed to fetch user info:', error);
         }
-    }
+    },[]);
 
     const formatFileSize = (bytes) => {
         if (bytes === 0) return '0 Bytes';
@@ -54,7 +54,8 @@ function Home() {
     };
 
     // get  folders and files list
-    const fetchFoldersAndFiles = async (userId = null) => {
+    const fetchFoldersAndFiles =useCallback(
+    async (userId = null) => {
         try {
             const currentUserId = userId || actualUserId || localStorage.getItem('userId');
 
@@ -98,7 +99,7 @@ function Home() {
         } catch (error) {
             console.error('Error fetching data:', error);
         }
-    };
+    },[]);
 
     useEffect(() => {
         fetchUserId();

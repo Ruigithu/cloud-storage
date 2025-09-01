@@ -70,7 +70,7 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
         }
     };
     // 上传单个部分的函数
-    const uploadPart = (chunk, fileId, uploadId, partNumber) => {
+    const uploadPart =useCallback( (chunk, fileId, uploadId, partNumber) => {
         return new Promise((resolve, reject) => {
             const formData = new FormData();
             formData.append("part", chunk);
@@ -126,7 +126,7 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
             xhr.setRequestHeader("Authorization", `Bearer ${localStorage.getItem("token")}`);
             xhr.send(formData);
         });
-    };
+    },[]);
 
     const completeUpload =  useCallback( async (fileId, uploadId, partETags) => {
         console.log("Calling completeUpload with: ", partETags);
@@ -168,7 +168,7 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
             setUploadedParts([]);
             isPausedRef.current = false;
         }
-    });
+    },[]);
 
     // 使用 useCallback 来确保函数引用的稳定性
     const uploadChunks = useCallback(async (file, uploadId, fileId, startPartNumber = 1) => {

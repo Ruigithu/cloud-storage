@@ -1,5 +1,5 @@
 import Sidebar from "../../SideBar";
-import React, {useEffect, useState} from "react";
+import React, {useCallback, useEffect, useState} from "react";
 import driveIcon from "../../../../assets/images/cloudversify-brands-solid.svg";
 import "./MyShared.css";
 import OperateSpecificSharedFile from "./OperateSpecificSharedFile/OperateSpecificSharedFile";
@@ -10,7 +10,7 @@ function MyShared(){
     const actualUserId = localStorage.getItem('userId');
 
     // 获取文件夹列表
-    const fetchSharedFiles = async () => {
+    const fetchSharedFiles =useCallback( async () => {
         try {
             const response = await apiRequest(
                 `${process.env.REACT_APP_API_URL}/getAllSharedFiles?ownerId=${actualUserId}`,
@@ -29,7 +29,7 @@ function MyShared(){
         } catch (error) {
             console.error('Error fetching data:', error);
         }
-    };
+    },[]);
 
     useEffect(() => {
         if (actualUserId) {
