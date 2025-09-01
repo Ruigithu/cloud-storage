@@ -259,17 +259,6 @@ const QuillEditor = ({ documentId, userId }) => {
                     contentChangeRef.current = true;
                 }
 
-                if (type === 'userJoined') {
-                    setActiveUsers(prev => new Set([...prev, editingUserId]));
-                }
-
-                if (type === 'userLeft') {
-                    setActiveUsers(prev => {
-                        const newUsers = new Set(prev);
-                        newUsers.delete(editingUserId);
-                        return newUsers;
-                    });
-                }
             } catch (error) {
                 console.error("Message parsing error:", error);
             }
@@ -291,8 +280,6 @@ const QuillEditor = ({ documentId, userId }) => {
                 }
             });
         }
-
-        setSocket(newSocket);
 
         return () => {
             newSocket.close();
