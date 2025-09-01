@@ -11,6 +11,53 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
     const [retryQueue, setRetryQueue] = useState([]);
     const cancelRef = React.useRef(false);
 
+    const completeUpload = useCallback(  async (fileId, uploadId, partETags) => {
+        console.log("Calling completeUpload with: ", partETags);
+        if (cancelRef.current) return;
+
+        const payload = {
+            fileId,
+            uploadId,
+            partETags: partETags.map((part) => ({
+                partNumber: part.partNumber,
+                eTag: part.eTag,
+            })),
+        };
+
+        try {
+            const response = await apiRequest(
+                `${process.env.REACT_APP_API_URL}/resumable/complete`,
+                {
+                    method: "POST",
+                    body: JSON.stringify(payload),
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${localStorage.getItem("token")}`,
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to complete upload for file with ID ${fileId}`);
+            }
+
+            const completeResult = await response.json();
+            console.log(`File with ID ${fileId} completed. Result:`, completeResult);
+
+            // 更新上传状态并移除已完成的文件
+            const updatedUploads = activeUploads.filter(upload => upload.fileId !== fileId);
+            setActiveUploads(updatedUploads);
+
+            // 更新已上传文件计数
+            setUploadedFiles(prev => prev + 1);
+
+            return completeResult;
+        } catch (error) {
+            console.error(`Error completing upload for file with ID ${fileId}:`, error);
+            throw error;
+        }
+    },[]);
+
     const uploadFileParts = useCallback( async (fileInfo, file) => {
         // Skip if already cancelled
         if (cancelRef.current) return;
@@ -115,7 +162,8 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
             uploadFileParts(retryFile.fileInfo, retryFile.file);
         }
     }, [retryQueue, isUploading,uploadFileParts]);
-    const completeAllUploads = async () => {
+
+    const completeAllUploads =useCallback( async () => {
         try {
             // 过滤出还没有完成的上传
             const pendingUploads = activeUploads.filter(
@@ -169,7 +217,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
             alert('Failed to complete some uploads');
             setIsUploading(false);
         }
-    };
+    },[]);
 
     const checkUploadStatus = useCallback( async () => {
         if (activeUploads.length === 0) return;
@@ -427,52 +475,6 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
 
 
 
-    const completeUpload = async (fileId, uploadId, partETags) => {
-        console.log("Calling completeUpload with: ", partETags);
-        if (cancelRef.current) return;
-
-        const payload = {
-            fileId,
-            uploadId,
-            partETags: partETags.map((part) => ({
-                partNumber: part.partNumber,
-                eTag: part.eTag,
-            })),
-        };
-
-        try {
-            const response = await apiRequest(
-                `${process.env.REACT_APP_API_URL}/resumable/complete`,
-                {
-                    method: "POST",
-                    body: JSON.stringify(payload),
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    },
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error(`Failed to complete upload for file with ID ${fileId}`);
-            }
-
-            const completeResult = await response.json();
-            console.log(`File with ID ${fileId} completed. Result:`, completeResult);
-
-            // 更新上传状态并移除已完成的文件
-            const updatedUploads = activeUploads.filter(upload => upload.fileId !== fileId);
-            setActiveUploads(updatedUploads);
-
-            // 更新已上传文件计数
-            setUploadedFiles(prev => prev + 1);
-
-            return completeResult;
-        } catch (error) {
-            console.error(`Error completing upload for file with ID ${fileId}:`, error);
-            throw error;
-        }
-    };
 
     const cancelUpload = async () => {
         if (!isUploading || activeUploads.length === 0) return;
