@@ -56,7 +56,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
             console.error(`Error completing upload for file with ID ${fileId}:`, error);
             throw error;
         }
-    },[]);
+    },[activeUploads]);
 
     const uploadFileParts = useCallback( async (fileInfo, file) => {
         // Skip if already cancelled
@@ -217,7 +217,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
             alert('Failed to complete some uploads');
             setIsUploading(false);
         }
-    },[]);
+    },[activeUploads,onFileUploadSuccess]);
 
     const checkUploadStatus = useCallback( async () => {
         if (activeUploads.length === 0) return;
