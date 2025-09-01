@@ -22,7 +22,6 @@ function Signup(){
             passwordHash: passwordHash.trim()
         };
 
-        console.log('the sending data:', userData);
 
         try {
             const response = await fetch(
