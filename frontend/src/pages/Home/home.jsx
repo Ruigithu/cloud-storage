@@ -43,7 +43,7 @@ function Home() {
         }catch (error){
             console.error('Failed to fetch user info:', error);
         }
-    },[]);
+    },[dispatch]);
 
     const formatFileSize = (bytes) => {
         if (bytes === 0) return '0 Bytes';
@@ -99,7 +99,7 @@ function Home() {
         } catch (error) {
             console.error('Error fetching data:', error);
         }
-    },[]);
+    },[actualUserId,rootFolderId]);
 
     useEffect(() => {
         fetchUserId();

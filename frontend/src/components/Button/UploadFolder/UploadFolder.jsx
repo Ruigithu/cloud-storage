@@ -101,7 +101,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
                 }]);
             }
         }
-    },[]);
+    },[activeUploads,completeUpload]);
 
     // retry
     useEffect(() => {
@@ -115,69 +115,6 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
             uploadFileParts(retryFile.fileInfo, retryFile.file);
         }
     }, [retryQueue, isUploading,uploadFileParts]);
-
-    const checkUploadStatus = useCallback( async () => {
-        if (activeUploads.length === 0) return;
-
-        try {
-            const fileIds = activeUploads.map(upload => upload.fileId);
-            const response = await apiRequest(
-                `${process.env.REACT_APP_API_URL}/folders-upload-status?fileIds=${fileIds.join(',')}`
-            );
-
-            if (!response.ok) {
-                throw new Error('Failed to get upload status');
-            }
-
-            const statusData = await response.json();
-            const files = statusData.files || [];
-
-            let totalProgress = 0;
-            let completedCount = 0;
-            const updatedUploads = [...activeUploads];
-
-            files.forEach(fileStatus => {
-                const uploadIndex = updatedUploads.findIndex(u => u.fileId === fileStatus.fileId);
-                if (uploadIndex !== -1) {
-                    updatedUploads[uploadIndex].progress = fileStatus.progress || 0;
-                    updatedUploads[uploadIndex].status = fileStatus.status || 'pending'; // 确保状态同步
-                    if (fileStatus.status === 'completed') {
-                        completedCount++;
-                    }
-                    totalProgress += fileStatus.progress || 0;
-                }
-            });
-
-            // 更新总体进度
-            const overallProgress = files.length > 0 ? Math.round((totalProgress / files.length) * 100) : 0;
-            setUploadProgress(overallProgress);
-            setUploadedFiles(completedCount);
-            setActiveUploads(updatedUploads);
-
-            // 如果所有文件都上传完成，结束上传过程
-            if (completedCount === totalFiles && totalFiles > 0) {
-                await completeAllUploads();
-            }
-        } catch (error) {
-            console.error('Error checking upload status:', error);
-        }
-    },[]);
-
-    // monitor progress
-    useEffect(() => {
-        if (activeUploads.length > 0) {
-            const interval = setInterval(() => {
-                checkUploadStatus();
-            }, 2000);
-
-            return () => clearInterval(interval);
-        }
-    }, [activeUploads,checkUploadStatus]);
-
-
-
-
-
     const completeAllUploads = async () => {
         try {
             // 过滤出还没有完成的上传
@@ -233,6 +170,66 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
             setIsUploading(false);
         }
     };
+
+    const checkUploadStatus = useCallback( async () => {
+        if (activeUploads.length === 0) return;
+
+        try {
+            const fileIds = activeUploads.map(upload => upload.fileId);
+            const response = await apiRequest(
+                `${process.env.REACT_APP_API_URL}/folders-upload-status?fileIds=${fileIds.join(',')}`
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to get upload status');
+            }
+
+            const statusData = await response.json();
+            const files = statusData.files || [];
+
+            let totalProgress = 0;
+            let completedCount = 0;
+            const updatedUploads = [...activeUploads];
+
+            files.forEach(fileStatus => {
+                const uploadIndex = updatedUploads.findIndex(u => u.fileId === fileStatus.fileId);
+                if (uploadIndex !== -1) {
+                    updatedUploads[uploadIndex].progress = fileStatus.progress || 0;
+                    updatedUploads[uploadIndex].status = fileStatus.status || 'pending'; // 确保状态同步
+                    if (fileStatus.status === 'completed') {
+                        completedCount++;
+                    }
+                    totalProgress += fileStatus.progress || 0;
+                }
+            });
+
+            // 更新总体进度
+            const overallProgress = files.length > 0 ? Math.round((totalProgress / files.length) * 100) : 0;
+            setUploadProgress(overallProgress);
+            setUploadedFiles(completedCount);
+            setActiveUploads(updatedUploads);
+
+            // 如果所有文件都上传完成，结束上传过程
+            if (completedCount === totalFiles && totalFiles > 0) {
+                await completeAllUploads();
+            }
+        } catch (error) {
+            console.error('Error checking upload status:', error);
+        }
+    },[activeUploads,completeAllUploads,totalFiles]);
+
+    // monitor progress
+    useEffect(() => {
+        if (activeUploads.length > 0) {
+            const interval = setInterval(() => {
+                checkUploadStatus();
+            }, 2000);
+
+            return () => clearInterval(interval);
+        }
+    }, [activeUploads,checkUploadStatus]);
+
+
 
     // start uploading
     const handleUploadFolder = async (e) => {

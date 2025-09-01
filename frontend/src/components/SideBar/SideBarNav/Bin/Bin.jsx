@@ -77,7 +77,7 @@ function Bin(){
         } catch (error) {
             console.error('Error fetching data:', error);
         }
-    },[]);
+    },[rootFolderId]);
 
     useEffect(() => {
         if (actualUserId) {

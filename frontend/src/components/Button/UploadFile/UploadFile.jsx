@@ -126,7 +126,7 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
             xhr.setRequestHeader("Authorization", `Bearer ${localStorage.getItem("token")}`);
             xhr.send(formData);
         });
-    },[]);
+    },[CHUNK_SIZE]);
 
     const completeUpload =  useCallback( async (fileId, uploadId, partETags) => {
         console.log("Calling completeUpload with: ", partETags);
@@ -168,7 +168,7 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
             setUploadedParts([]);
             isPausedRef.current = false;
         }
-    },[]);
+    },[onFileUploadSuccess]);
 
     // 使用 useCallback 来确保函数引用的稳定性
     const uploadChunks = useCallback(async (file, uploadId, fileId, startPartNumber = 1) => {

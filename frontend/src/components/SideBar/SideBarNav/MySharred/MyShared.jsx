@@ -29,7 +29,7 @@ function MyShared(){
         } catch (error) {
             console.error('Error fetching data:', error);
         }
-    },[]);
+    },[ actualUserId]);
 
     useEffect(() => {
         if (actualUserId) {
