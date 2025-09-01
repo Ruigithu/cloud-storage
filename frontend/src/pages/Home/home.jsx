@@ -102,7 +102,7 @@ function Home() {
 
     useEffect(() => {
         fetchUserId();
-    }, []);
+    }, [fetchUserId]);
 
     useEffect(() => {
         if (actualUserId) {
@@ -118,7 +118,7 @@ function Home() {
             }
         }
 
-    }, [rootFolderId, actualUserId]);
+    }, [rootFolderId, actualUserId,fetchFoldersAndFiles,navigate]);
 
 
     const onFileUploadSuccess = () => {

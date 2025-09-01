@@ -8,8 +8,6 @@ import apiRequest from "../../../utils/api";
 const QuillEditor = ({ documentId, userId }) => {
     const editorRef = useRef(null);
     const quillRef = useRef(null);
-    const [socket, setSocket] = useState(null);
-    const [activeUsers, setActiveUsers] = useState(new Set());
     const [isUnsupportedFile, setIsUnsupportedFile] = useState(false);
     const [isImage, setIsImage] = useState(false);
     const [fileUrl, setFileUrl] = useState('');
@@ -23,7 +21,7 @@ const QuillEditor = ({ documentId, userId }) => {
     const isSavingRef = useRef(false);
 
     // Function to process images in the editor content
-    const processImagesInDelta = async (delta) => {
+    const processImagesInDelta = useCallback(  async (delta) => {
         const updatedOps = await Promise.all(delta.ops.map(async op => {
             if (op.insert && op.insert.image && op.insert.image.startsWith('data:image')) {
                 const imageBlob = await fetch(op.insert.image).then(res => res.blob());
@@ -46,7 +44,7 @@ const QuillEditor = ({ documentId, userId }) => {
             return op;
         }));
         return { ops: updatedOps };
-    };
+    });
 
     // Download file function
     const downloadFile = async () => {
@@ -199,17 +197,6 @@ const QuillEditor = ({ documentId, userId }) => {
         return mimeToExt[mimeType] || '.txt';
     }
 
-    // Check if file type is editable
-    function isEditableFileType(mimeType) {
-        const editableTypes = [
-            'text/plain',
-            'text/html',
-            'application/json',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/msword'
-        ];
-        return editableTypes.some(type => mimeType?.includes(type));
-    }
 
     // Initialize Quill editor and WebSocket connection
     useEffect(() => {

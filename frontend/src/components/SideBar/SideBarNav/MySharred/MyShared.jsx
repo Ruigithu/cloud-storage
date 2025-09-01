@@ -35,7 +35,7 @@ function MyShared(){
         if (actualUserId) {
             fetchSharedFiles();
         }
-    }, [actualUserId]);
+    }, [actualUserId,fetchSharedFiles]);
 
 
     return (

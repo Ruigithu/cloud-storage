@@ -37,7 +37,6 @@ function Signup(){
 
             //get the authentication response
             if (response.ok){
-                const data = await response.json();
                 localStorage.setItem("token","");
                 navigate("/login")
             }

@@ -11,6 +11,98 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
     const [retryQueue, setRetryQueue] = useState([]);
     const cancelRef = React.useRef(false);
 
+    const uploadFileParts = useCallback( async (fileInfo, file) => {
+        // Skip if already cancelled
+        if (cancelRef.current) return;
+
+        const CHUNK_SIZE = 5 * 1024 * 1024;
+        const fileId = fileInfo.fileId;
+        const uploadId = fileInfo.uploadId;
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+        try {
+            // Instead of creating all promises at once, process sequentially to allow cancellation
+            const formattedPartETags = [];
+
+            for (let partNumber = 1; partNumber <= totalChunks; partNumber++) {
+                // Check for cancellation before each part
+                if (cancelRef.current) {
+                    console.log(`Cancelled upload for ${file.name}`);
+                    return;
+                }
+
+                const start = (partNumber - 1) * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
+
+                const chunkFormData = new FormData();
+                chunkFormData.append('fileId', fileId);
+                chunkFormData.append('uploadId', uploadId);
+                chunkFormData.append('partNumber', partNumber);
+                chunkFormData.append('file', chunk);
+
+                try {
+                    const response = await apiRequest(
+                        `${process.env.REACT_APP_API_URL}/folders-upload-part`,
+                        {
+                            method: 'POST',
+                            body: chunkFormData
+                        }
+                    );
+
+                    // Check for cancellation after each part
+                    if (cancelRef.current) {
+                        console.log(`Cancelled upload for ${file.name} after part ${partNumber}`);
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to upload part ${partNumber}, status: ${response.status}`);
+                    }
+
+                    const partETag = await response.json();
+                    const formattedETag = {
+                        partNumber: partNumber,
+                        eTag: partETag.eTag || partETag.etag || partETag
+                    };
+
+                    formattedPartETags.push(formattedETag);
+
+                    const updatedUploads = [...activeUploads];
+                    const uploadIndex = updatedUploads.findIndex(u => u.fileId === fileId);
+                    if (uploadIndex !== -1) {
+                        updatedUploads[uploadIndex].partETags.push(formattedETag);
+                        updatedUploads[uploadIndex].progress = partNumber / totalChunks;
+                        setActiveUploads(updatedUploads);
+                    }
+                } catch (error) {
+                    console.error(`Error uploading part ${partNumber} for ${file.name}:`, error);
+                    throw error;
+                }
+            }
+
+            // Only complete if not cancelled
+            if (!cancelRef.current) {
+                await completeUpload(fileId, uploadId, formattedPartETags);
+            }
+        } catch (error) {
+            console.error(`Error uploading file parts for ${file.name}:`, error);
+
+            // 只有在文件未完成的情况下才加入重试队列
+            const upload = activeUploads.find(u => u.fileId === fileId);
+            if (upload && upload.status !== 'completed') {
+                setFailedFiles(prev => [...prev, {
+                    fileName: file.name,
+                    error: error.message
+                }]);
+                setRetryQueue(prev => [...prev, {
+                    fileInfo,
+                    file
+                }]);
+            }
+        }
+    });
+
     // retry
     useEffect(() => {
         if (retryQueue.length > 0 && !isUploading) {
@@ -24,19 +116,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
         }
     }, [retryQueue, isUploading,uploadFileParts]);
 
-    // monitor progress
-    useEffect(() => {
-        if (activeUploads.length > 0) {
-            const interval = setInterval(() => {
-                checkUploadStatus();
-            }, 2000);
-
-            return () => clearInterval(interval);
-        }
-    }, [activeUploads,checkUploadStatus]);
-
-
-    const checkUploadStatus = async () => {
+    const checkUploadStatus = useCallback( async () => {
         if (activeUploads.length === 0) return;
 
         try {
@@ -81,7 +161,21 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
         } catch (error) {
             console.error('Error checking upload status:', error);
         }
-    };
+    });
+
+    // monitor progress
+    useEffect(() => {
+        if (activeUploads.length > 0) {
+            const interval = setInterval(() => {
+                checkUploadStatus();
+            }, 2000);
+
+            return () => clearInterval(interval);
+        }
+    }, [activeUploads,checkUploadStatus]);
+
+
+
 
 
     const completeAllUploads = async () => {
@@ -334,97 +428,7 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
     };
 
 
-    const uploadFileParts = async (fileInfo, file) => {
-        // Skip if already cancelled
-        if (cancelRef.current) return;
 
-        const CHUNK_SIZE = 5 * 1024 * 1024;
-        const fileId = fileInfo.fileId;
-        const uploadId = fileInfo.uploadId;
-        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-        try {
-            // Instead of creating all promises at once, process sequentially to allow cancellation
-            const formattedPartETags = [];
-
-            for (let partNumber = 1; partNumber <= totalChunks; partNumber++) {
-                // Check for cancellation before each part
-                if (cancelRef.current) {
-                    console.log(`Cancelled upload for ${file.name}`);
-                    return;
-                }
-
-                const start = (partNumber - 1) * CHUNK_SIZE;
-                const end = Math.min(start + CHUNK_SIZE, file.size);
-                const chunk = file.slice(start, end);
-
-                const chunkFormData = new FormData();
-                chunkFormData.append('fileId', fileId);
-                chunkFormData.append('uploadId', uploadId);
-                chunkFormData.append('partNumber', partNumber);
-                chunkFormData.append('file', chunk);
-
-                try {
-                    const response = await apiRequest(
-                        `${process.env.REACT_APP_API_URL}/folders-upload-part`,
-                        {
-                            method: 'POST',
-                            body: chunkFormData
-                        }
-                    );
-
-                    // Check for cancellation after each part
-                    if (cancelRef.current) {
-                        console.log(`Cancelled upload for ${file.name} after part ${partNumber}`);
-                        return;
-                    }
-
-                    if (!response.ok) {
-                        throw new Error(`Failed to upload part ${partNumber}, status: ${response.status}`);
-                    }
-
-                    const partETag = await response.json();
-                    const formattedETag = {
-                        partNumber: partNumber,
-                        eTag: partETag.eTag || partETag.etag || partETag
-                    };
-
-                    formattedPartETags.push(formattedETag);
-
-                    const updatedUploads = [...activeUploads];
-                    const uploadIndex = updatedUploads.findIndex(u => u.fileId === fileId);
-                    if (uploadIndex !== -1) {
-                        updatedUploads[uploadIndex].partETags.push(formattedETag);
-                        updatedUploads[uploadIndex].progress = partNumber / totalChunks;
-                        setActiveUploads(updatedUploads);
-                    }
-                } catch (error) {
-                    console.error(`Error uploading part ${partNumber} for ${file.name}:`, error);
-                    throw error;
-                }
-            }
-
-            // Only complete if not cancelled
-            if (!cancelRef.current) {
-                await completeUpload(fileId, uploadId, formattedPartETags);
-            }
-        } catch (error) {
-            console.error(`Error uploading file parts for ${file.name}:`, error);
-
-            // 只有在文件未完成的情况下才加入重试队列
-            const upload = activeUploads.find(u => u.fileId === fileId);
-            if (upload && upload.status !== 'completed') {
-                setFailedFiles(prev => [...prev, {
-                    fileName: file.name,
-                    error: error.message
-                }]);
-                setRetryQueue(prev => [...prev, {
-                    fileInfo,
-                    file
-                }]);
-            }
-        }
-    };
 
     const completeUpload = async (fileId, uploadId, partETags) => {
         console.log("Calling completeUpload with: ", partETags);

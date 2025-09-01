@@ -50,7 +50,7 @@ const ShareHandler = () => {
                 }
 
                 const data = await response.json();
-                const { type, fileId, fileName, filePath } = data;
+                const { type, fileId, fileName} = data;
 
 
                 if (type === 'READ') {

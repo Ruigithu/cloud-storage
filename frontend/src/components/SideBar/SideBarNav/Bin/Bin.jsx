@@ -45,8 +45,6 @@ function Bin(){
 
                 // Process folders first
                 const uniqueFolders = folderData.filter(folder => {
-                    // Create a unique identifier for folders with prefix
-                    const uniqueId = `folder_${folder.id}`;
 
                     // Check if we've seen this ID before
                     if (seenIds.has(folder.id)) {
@@ -61,8 +59,6 @@ function Bin(){
 
                 // Process files
                 const uniqueFiles = fileData.filter(file => {
-                    // Create a unique identifier for files with prefix
-                    const uniqueId = `file_${file.id}`;
 
                     // Check if we've seen this ID before
                     if (seenIds.has(file.id)) {
@@ -87,7 +83,7 @@ function Bin(){
         if (actualUserId) {
             fetchFoldersAndFiles();
         }
-    }, [rootFolderId, actualUserId]);
+    }, [rootFolderId, actualUserId,fetchFoldersAndFiles]);
 
     const getFileIcon = (fileType) => {
         if (fileType.startsWith("image/")) return "fa-regular fa-image"; // img

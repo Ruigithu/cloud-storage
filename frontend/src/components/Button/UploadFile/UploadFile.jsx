@@ -69,6 +69,106 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
             setIsUploading(false);
         }
     };
+    // 上传单个部分的函数
+    const uploadPart = (chunk, fileId, uploadId, partNumber) => {
+        return new Promise((resolve, reject) => {
+            const formData = new FormData();
+            formData.append("part", chunk);
+            formData.append("fileId", fileId);
+            formData.append("uploadId", uploadId);
+            formData.append("partNumber", partNumber);
+
+            const xhr = new XMLHttpRequest();
+            xhrRef.current = xhr;
+
+            xhr.upload.addEventListener("progress", (event) => {
+                if (event.lengthComputable) {
+                    const totalChunks = Math.ceil(fileRef.current.size / CHUNK_SIZE);
+                    const partProgress = ((partNumber - 1) / totalChunks) * 100;
+                    const chunkProgress = (event.loaded / event.total) * (100 / totalChunks);
+                    const totalProgress = partProgress + chunkProgress;
+                    setUploadProgress(Math.min(totalProgress, 100));
+                }
+            });
+
+            xhr.addEventListener("load", () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        console.log(`Part ${partNumber} uploaded successfully:`, response);
+
+                        const extractedETag = response.etag || response.eTag;
+
+                        if (!extractedETag) {
+                            console.error("Cannot find eTag in response:", response);
+                            reject(new Error("Missing eTag in server response"));
+                            return;
+                        }
+
+                        resolve({
+                            partNumber: partNumber,
+                            eTag: extractedETag
+                        });
+                    } catch (error) {
+                        console.error("Error parsing response:", error, xhr.responseText);
+                        reject(error);
+                    }
+                } else {
+                    reject(new Error(`Chunk upload failed with status ${xhr.status}`));
+                }
+            });
+
+            xhr.addEventListener("error", () => {
+                reject(new Error("Error uploading chunk"));
+            });
+
+            xhr.open("POST", `${process.env.REACT_APP_API_URL}/resumable/part`, true);
+            xhr.setRequestHeader("Authorization", `Bearer ${localStorage.getItem("token")}`);
+            xhr.send(formData);
+        });
+    };
+
+    const completeUpload =  useCallback( async (fileId, uploadId, partETags) => {
+        console.log("Calling completeUpload with: ", partETags);
+
+        const payload = {
+            fileId,
+            uploadId,
+            partETags: partETags.map((part) => ({
+                partNumber: part.partNumber,
+                eTag: part.eTag,
+            })),
+        };
+        console.log("Complete upload payload:", JSON.stringify(payload, null, 2));
+        try {
+            const response = await apiRequest(
+                `${process.env.REACT_APP_API_URL}/resumable/complete`,
+                {
+                    method: "POST",
+                    body: JSON.stringify(payload),
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${localStorage.getItem("token")}`,
+                    },
+                }
+            );
+
+            if (response.ok) {
+                alert("File uploaded successfully");
+                if (onFileUploadSuccess) onFileUploadSuccess();
+            } else {
+                console.error("Failed to complete upload");
+            }
+        } catch (error) {
+            console.error("Error completing upload:", error);
+        } finally {
+            setIsUploading(false);
+            setUploadId(null);
+            setFileId(null);
+            setUploadedParts([]);
+            isPausedRef.current = false;
+        }
+    });
 
     // 使用 useCallback 来确保函数引用的稳定性
     const uploadChunks = useCallback(async (file, uploadId, fileId, startPartNumber = 1) => {
@@ -134,106 +234,6 @@ function UploadFile({ onFileUploadSuccess, ownerId, folderId }) {
         }
     }, [uploadedParts, CHUNK_SIZE, uploadPart, completeUpload]);
 
-    // 上传单个部分的函数
-    const uploadPart = (chunk, fileId, uploadId, partNumber) => {
-        return new Promise((resolve, reject) => {
-            const formData = new FormData();
-            formData.append("part", chunk);
-            formData.append("fileId", fileId);
-            formData.append("uploadId", uploadId);
-            formData.append("partNumber", partNumber);
-
-            const xhr = new XMLHttpRequest();
-            xhrRef.current = xhr;
-
-            xhr.upload.addEventListener("progress", (event) => {
-                if (event.lengthComputable) {
-                    const totalChunks = Math.ceil(fileRef.current.size / CHUNK_SIZE);
-                    const partProgress = ((partNumber - 1) / totalChunks) * 100;
-                    const chunkProgress = (event.loaded / event.total) * (100 / totalChunks);
-                    const totalProgress = partProgress + chunkProgress;
-                    setUploadProgress(Math.min(totalProgress, 100));
-                }
-            });
-
-            xhr.addEventListener("load", () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        console.log(`Part ${partNumber} uploaded successfully:`, response);
-
-                        const extractedETag = response.etag || response.eTag;
-
-                        if (!extractedETag) {
-                            console.error("Cannot find eTag in response:", response);
-                            reject(new Error("Missing eTag in server response"));
-                            return;
-                        }
-
-                        resolve({
-                            partNumber: partNumber,
-                            eTag: extractedETag
-                        });
-                    } catch (error) {
-                        console.error("Error parsing response:", error, xhr.responseText);
-                        reject(error);
-                    }
-                } else {
-                    reject(new Error(`Chunk upload failed with status ${xhr.status}`));
-                }
-            });
-
-            xhr.addEventListener("error", () => {
-                reject(new Error("Error uploading chunk"));
-            });
-
-            xhr.open("POST", `${process.env.REACT_APP_API_URL}/resumable/part`, true);
-            xhr.setRequestHeader("Authorization", `Bearer ${localStorage.getItem("token")}`);
-            xhr.send(formData);
-        });
-    };
-
-    const completeUpload = async (fileId, uploadId, partETags) => {
-        console.log("Calling completeUpload with: ", partETags);
-
-        const payload = {
-            fileId,
-            uploadId,
-            partETags: partETags.map((part) => ({
-                partNumber: part.partNumber,
-                eTag: part.eTag,
-            })),
-        };
-        console.log("Complete upload payload:", JSON.stringify(payload, null, 2));
-        try {
-            const response = await apiRequest(
-                `${process.env.REACT_APP_API_URL}/resumable/complete`,
-                {
-                    method: "POST",
-                    body: JSON.stringify(payload),
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    },
-                }
-            );
-
-            if (response.ok) {
-                alert("File uploaded successfully");
-                if (onFileUploadSuccess) onFileUploadSuccess();
-            } else {
-                console.error("Failed to complete upload");
-            }
-        } catch (error) {
-            console.error("Error completing upload:", error);
-        } finally {
-            setIsUploading(false);
-            setUploadId(null);
-            setFileId(null);
-            setUploadedParts([]);
-            isPausedRef.current = false;
-        }
-    };
 
     const pauseUpload = () => {
         // 同步更新状态和ref
