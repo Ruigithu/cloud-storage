@@ -63,21 +63,21 @@ function Signup() {
             const nameError = validateField('name', name);
             setErrors(prev => ({ ...prev, name: nameError }));
         }
-    }, [name, touched.name]);
+    }, [name, touched.name,validateField]);
 
     useEffect(() => {
         if (touched.email) {
             const emailError = validateField('email', email);
             setErrors(prev => ({ ...prev, email: emailError }));
         }
-    }, [email, touched.email]);
+    }, [email, touched.email,validateField]);
 
     useEffect(() => {
         if (touched.password) {
             const passwordError = validateField('password', password);
             setErrors(prev => ({ ...prev, password: passwordError }));
         }
-    }, [password, touched.password]);
+    }, [password, touched.password,validateField]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -111,7 +111,6 @@ function Signup() {
                 });
 
             if (response.ok) {
-                const data = await response.json();
                 navigate("/login");
             } else {
                 // 处理注册失败
