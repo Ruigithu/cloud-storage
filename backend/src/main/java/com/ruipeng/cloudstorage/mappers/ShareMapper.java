@@ -85,4 +85,22 @@ public interface ShareMapper {
             "true " +
             "WHERE id = #{shareId} AND created_by = #{userId}")
     int restore(UUID shareId, Long userId);
+
+    // Add this method to your existing ShareMapper interface
+
+    @Select("SELECT s.* FROM shares s " +
+            "JOIN files f ON s.file_id = f.id " +
+            "WHERE s.created_by = #{userId} " +
+            "AND f.name ILIKE '%' || #{query} || '%' " +
+            "ORDER BY f.name")
+    @Results({
+            @Result(property = "id", column = "id"),
+            @Result(property = "fileId", column = "file_id"),
+            @Result(property = "createdBy", column = "created_by"),
+            @Result(property = "accessType", column = "access_type"),
+            @Result(property = "expiresAt", column = "expires_at"),
+            @Result(property = "createdAt", column = "created_at"),
+            @Result(property = "active", column = "is_active")
+    })
+    List<Share> searchSharesByFileName(@Param("query") String query, @Param("userId") Long userId);
 }

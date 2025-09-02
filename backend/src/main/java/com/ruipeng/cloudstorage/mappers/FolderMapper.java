@@ -114,4 +114,41 @@ public interface FolderMapper {
 
     @Select("SELECT id FROM folders WHERE owner_id = #{userId} AND parent_id IS NULL LIMIT 1")
     Long getUserRootFolderId(Long userId);
+
+    @Select("SELECT * FROM folders " +
+            "WHERE owner_id = #{userId} " +
+            "AND name ILIKE '%' || #{query} || '%' " +
+            "AND is_deleted = FALSE " +
+            "ORDER BY name")
+    @Results({
+            @Result(property = "id", column = "id"),
+            @Result(property = "name", column = "name"),
+            @Result(property = "ownerId", column = "owner_id"),
+            @Result(property = "parentId", column = "parent_id"),
+            @Result(property = "createdAt", column = "created_at"),
+            @Result(property = "updatedAt", column = "updated_at"),
+            @Result(property = "path", column = "path"),
+            @Result(property = "isDeleted", column = "is_deleted")
+    })
+    List<Folder> searchFoldersByName(@Param("query") String query, @Param("userId") Long userId);
+
+    // Add this method to your existing FolderMapper interface
+
+    @Select("SELECT * FROM folders " +
+            "WHERE owner_id = #{userId} " +
+            "AND name ILIKE '%' || #{query} || '%' " +
+            "AND is_deleted = TRUE " +
+            "ORDER BY name")
+    @Results({
+            @Result(property = "id", column = "id"),
+            @Result(property = "name", column = "name"),
+            @Result(property = "ownerId", column = "owner_id"),
+            @Result(property = "parentId", column = "parent_id"),
+            @Result(property = "createdAt", column = "created_at"),
+            @Result(property = "updatedAt", column = "updated_at"),
+            @Result(property = "path", column = "path"),
+            @Result(property = "isDeleted", column = "is_deleted")
+    })
+    List<Folder> searchDeletedFoldersByName(@Param("query") String query, @Param("userId") Long userId);
+
 }

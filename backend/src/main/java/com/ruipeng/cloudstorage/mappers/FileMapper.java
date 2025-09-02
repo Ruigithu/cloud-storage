@@ -174,5 +174,43 @@ public interface FileMapper {
             "AND f.is_deleted = false " +
             "AND per.permission = 'admin'")
     File findByIdAndUserIdWithAdminPermission(Long fileId, Long userId);
+
+    @Select("SELECT * FROM files " +
+            "WHERE owner_id = #{userId} " +
+            "AND name ILIKE '%' || #{query} || '%' " +
+            "AND is_deleted = FALSE " +
+            "ORDER BY name")
+    @Results({
+            @Result(property = "id", column = "id"),
+            @Result(property = "name", column = "name"),
+            @Result(property = "mimeType", column = "mime_type"),
+            @Result(property = "size", column = "size"),
+            @Result(property = "ownerId", column = "owner_id"),
+            @Result(property = "folderId", column = "folder_id"),
+            @Result(property = "createdAt", column = "created_at"),
+            @Result(property = "updatedAt", column = "updated_at"),
+            @Result(property = "isDeleted", column = "is_deleted")
+    })
+    List<File> searchFilesByName(@org.springframework.data.repository.query.Param("query") String query, @org.springframework.data.repository.query.Param("userId") Long userId);
+
+    // Add this method to your existing FileMapper interface
+
+    @Select("SELECT * FROM files " +
+            "WHERE owner_id = #{userId} " +
+            "AND name ILIKE '%' || #{query} || '%' " +
+            "AND is_deleted = TRUE " +
+            "ORDER BY name")
+    @Results({
+            @Result(property = "id", column = "id"),
+            @Result(property = "name", column = "name"),
+            @Result(property = "mimeType", column = "mime_type"),
+            @Result(property = "size", column = "size"),
+            @Result(property = "ownerId", column = "owner_id"),
+            @Result(property = "folderId", column = "folder_id"),
+            @Result(property = "createdAt", column = "created_at"),
+            @Result(property = "updatedAt", column = "updated_at"),
+            @Result(property = "isDeleted", column = "is_deleted")
+    })
+    List<File> searchDeletedFilesByName(@Param("query") String query, @Param("userId") Long userId);
 }
 

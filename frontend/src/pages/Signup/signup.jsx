@@ -1,27 +1,103 @@
-import {useState} from "react";
-import {useNavigate} from "react-router-dom";
-import   "./signup.css"
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import "./signup.css";
 
-function Signup(){
-    const[passwordHash,setPasswordHash]=useState('');
-    const[name,setName]=useState('');
-    const[email,setEmail]=useState('');
+function Signup() {
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [errors, setErrors] = useState({});
+    const [touched, setTouched] = useState({ name: false, email: false, password: false });
+    const [signupError, setSignupError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
 
-    const navigate =useNavigate();
+    // 验证电子邮件格式
+    const isValidEmail = (email) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
 
-    const handleSubmit = async (e)=>{
+    // 验证单个字段
+    const validateField = (name, value) => {
+        switch (name) {
+            case 'name':
+                if (!value.trim()) {
+                    return "Name can't be empty";
+                }
+                return "";
+            case 'email':
+                if (!value.trim()) {
+                    return "Email can't be empty";
+                } else if (!isValidEmail(value.trim())) {
+                    return "Invalid email address";
+                }
+                return "";
+            case 'password':
+                if (!value) {
+                    return "Password can't be empty";
+                } else if (value.length < 6) {
+                    return "Password must be at least 6 characters";
+                }
+                return "";
+            default:
+                return "";
+        }
+    };
+
+    // 验证整个表单
+    const validateForm = () => {
+        const newErrors = {
+            name: validateField('name', name),
+            email: validateField('email', email),
+            password: validateField('password', password)
+        };
+
+        setErrors(newErrors);
+        return !newErrors.name && !newErrors.email && !newErrors.password;
+    };
+
+    // 当输入字段变化时验证
+    useEffect(() => {
+        if (touched.name) {
+            const nameError = validateField('name', name);
+            setErrors(prev => ({ ...prev, name: nameError }));
+        }
+    }, [name, touched.name]);
+
+    useEffect(() => {
+        if (touched.email) {
+            const emailError = validateField('email', email);
+            setErrors(prev => ({ ...prev, email: emailError }));
+        }
+    }, [email, touched.email]);
+
+    useEffect(() => {
+        if (touched.password) {
+            const passwordError = validateField('password', password);
+            setErrors(prev => ({ ...prev, password: passwordError }));
+        }
+    }, [password, touched.password]);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!name || !passwordHash || !email) {
-            alert('you have to fill all the fields！');
+        setSignupError('');
+
+        // 标记所有字段为已触碰
+        setTouched({ name: true, email: true, password: true });
+
+        // 表单验证
+        if (!validateForm()) {
             return;
         }
+
+        setIsLoading(true);
 
         const userData = {
             name: name.trim(),
             email: email.trim(),
-            passwordHash: passwordHash.trim()
+            passwordHash: password.trim() // 在后端，变量名是 passwordHash
         };
-
 
         try {
             const response = await fetch(
@@ -34,56 +110,125 @@ function Signup(){
                     body: JSON.stringify(userData)
                 });
 
-            //get the authentication response
-            if (response.ok){
-                localStorage.setItem("token","");
-                navigate("/login")
+            if (response.ok) {
+                const data = await response.json();
+                navigate("/login");
+            } else {
+                // 处理注册失败
+                const errorData = await response.json().catch(() => ({}));
+                setSignupError(errorData.message || 'Registration failed. Please try again.');
             }
-
-        }catch (error){
+        } catch (error) {
             console.error('Signup failed:', error);
+            setSignupError('Registration failed. Please try again later.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 处理输入变化
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+
+        if (name === 'name') {
+            setName(value);
+        } else if (name === 'email') {
+            setEmail(value);
+        } else if (name === 'password') {
+            setPassword(value);
         }
 
-    }
+        if (signupError) {
+            setSignupError('');
+        }
+    };
 
+    // 处理失去焦点事件
+    const handleBlur = (e) => {
+        const { name } = e.target;
+        setTouched(prev => ({ ...prev, [name]: true }));
+    };
 
-    return(
+    return (
         <div className="signup-container">
             <form className="form-container" onSubmit={handleSubmit}>
-                <label id="name"> name:
-                    <br/>
-                    <input className="signup-input"
-                           type="text"
-                           value={name}
-                           onChange={
-                               (e) => setName(e.target.value)
-                           }/>
+                <div className="form-header">
+                    <h1>Create Your Account</h1>
+                    <p>Fill out the form to get started</p>
+                </div>
+
+                {signupError && (
+                    <div className="error-message global-error">{signupError}</div>
+                )}
+
+                <label htmlFor="name">
+                    Full Name
+                    <input
+                        className={`signup-input ${errors.name && touched.name ? 'input-error' : ''}`}
+                        id="name"
+                        name="name"
+                        type="text"
+                        placeholder="Rui Peng"
+                        value={name}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        disabled={isLoading}
+                    />
+                    {errors.name && touched.name && (
+                        <div className="error-message">{errors.name}</div>
+                    )}
                 </label>
 
-                <label>email:
-                    <br/>
-                    <input className="signup-input" id="firstname"
-                           type="text"
-                           value={email}
-                           onChange={
-                               (e) => setEmail(e.target.value)
-                           }/>
+                <label htmlFor="email">
+                    Email Address
+                    <input
+                        className={`signup-input ${errors.email && touched.email ? 'input-error' : ''}`}
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="yourname@example.com"
+                        value={email}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        disabled={isLoading}
+                    />
+                    {errors.email && touched.email && (
+                        <div className="error-message">{errors.email}</div>
+                    )}
                 </label>
-                <label>password:
-                    <br/>
-                    <input className="signup-input" id="password"
-                           type="password"
-                           value={passwordHash}
-                           onChange={
-                               (e) => setPasswordHash(e.target.value)
-                           }/>
+
+                <label htmlFor="password">
+                    Password
+                    <input
+                        className={`signup-input ${errors.password && touched.password ? 'input-error' : ''}`}
+                        id="password"
+                        name="password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        disabled={isLoading}
+                    />
+                    {errors.password && touched.password && (
+                        <div className="error-message">{errors.password}</div>
+                    )}
                 </label>
-                <button className="signup-submit" type="submit">Sign up</button>
+
+                <button
+                    className="signup-submit"
+                    type="submit"
+                    disabled={isLoading}
+                >
+                    {isLoading ? 'Creating Account...' : 'Sign Up'}
+                </button>
+
+                <div className="login-link">
+                    <a href="/login">Already have an account? Sign in</a>
+                </div>
             </form>
-
         </div>
     );
-
 }
 
 export default Signup;

@@ -10,7 +10,10 @@ import com.ruipeng.cloudstorage.mappers.FileMapper;
 import com.ruipeng.cloudstorage.mappers.FilePermissionMapper;
 import com.ruipeng.cloudstorage.mappers.FileVersionMapper;
 import com.ruipeng.cloudstorage.service.*;
+import org.apache.poi.poifs.filesystem.OfficeXmlFileException;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+import org.apache.tika.Tika;
+import org.docx4j.convert.out.html.HtmlExporterNG2;
 import org.docx4j.fonts.IdentityPlusMapper;
 import org.docx4j.fonts.Mapper;
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
@@ -369,15 +372,31 @@ public class FileController {
             // 获取最新版本的存储路径
             FileVersion latestVersion = fileVersionMapper.getLatestVersion(fileId);
             String storagePath = latestVersion.getStoragePath();
+            boolean isDocFormat = existingFile.getName().toLowerCase().endsWith(".doc") ||
+                    storagePath.toLowerCase().endsWith(".doc");
+
+            System.out.println("基于文件名判断格式: " + (isDocFormat ? ".doc" : ".docx"));
+            System.out.println("文件名: " + existingFile.getName());
+            System.out.println("存储路径: " + storagePath);
 
             // 从S3下载DOCX文件
-            byte[] docxBytes = s3StorageService.downloadFile(storagePath);
+            byte[] docBytes = s3StorageService.downloadFile(storagePath);
+            String htmlContent=null;
 
-            // 使用Mammoth库转换DOCX为HTML
-            String htmlContent = convertDocxToHtmlUsingMammoth(docxBytes);
+            Map<String, Object> response = new HashMap<>();
+
+            if (docBytes[0] == (byte)0x50 && docBytes[1] == (byte)0x4B &&
+                    docBytes[2] == (byte)0x03 && docBytes[3] == (byte)0x04&&isDocFormat){
+                htmlContent=extractContentFromDocxBytes(docBytes);
+                response.put("fakeDocx", file.getName());
+
+            }else {
+                htmlContent =convertDocxToHtmlUsingMammoth(docBytes);
+            }
+
 
             // 创建响应
-            Map<String, Object> response = new HashMap<>();
+
             response.put("htmlContent", htmlContent);
             response.put("fileName", existingFile.getName());
             response.put("mimeType", existingFile.getMimeType());
@@ -386,39 +405,244 @@ public class FileController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to convert DOCX to HTML: " + e.getMessage());
+
+            // 在异常情况下也返回可用的响应
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("htmlContent", "<p>处理文档时出错: " + e.getMessage() + "</p>");
+            errorResponse.put("error", true);
+
+            return ResponseEntity.status(HttpStatus.OK).body(errorResponse);
         }
     }
-    // 在FileController.java中添加这个替代方法
-    private String convertDocxToHtmlUsingMammoth(byte[] docxBytes) throws Exception {
-        // 创建临时文件
-        java.io.File docxFile = convertBytesToDocxFile(docxBytes);
 
-        // 使用Mammoth库进行转换，遵循正确的样式映射语法
-        org.zwobble.mammoth.DocumentConverter converter = new org.zwobble.mammoth.DocumentConverter()
-                // 段落样式映射
-                .addStyleMap("p[style-name='Heading 1'] => h1:fresh")
-                .addStyleMap("p[style-name='Heading 2'] => h2:fresh")
-                .addStyleMap("p[style-name='Heading 3'] => h3:fresh")
-                .addStyleMap("p[style-name='Heading 4'] => h4:fresh")
-                .addStyleMap("p[style-name='Heading 5'] => h5:fresh")
-                .addStyleMap("p[style-name='Heading 6'] => h6:fresh")
-                // 行内样式映射
-                .addStyleMap("r[style-name='Strong'] => strong")
-                .addStyleMap("r[style-name='Emphasis'] => em")
-                .addStyleMap("r[style-name='Underline'] => u");
+    private String convertDocxToHtmlUsingMammoth(byte[] docBytes) throws Exception {
+        // 检查文件完整性
+        boolean isValidFile = false;
+        boolean isDocFile = false;
 
-        // 执行转换
-        org.zwobble.mammoth.Result<String> result = converter.convertToHtml(docxFile);
-        String htmlContent = result.getValue();
-
-        // 打印警告
-        for (String warning : result.getWarnings()) {
-            System.out.println("Mammoth warning: " + warning);
+        // 打印文件大小和前几个字节，帮助调试
+        System.out.println("文件大小: " + docBytes.length + " 字节");
+        if (docBytes.length > 16) {
+            System.out.println("文件头16字节: " + bytesToHex(docBytes, 0, 16));
         }
 
-        return htmlContent;
+        // 尝试检测文件类型
+        if (docBytes.length > 4) {
+            // 检查是否为DOC (OLE2)
+            if (docBytes[0] == (byte)0xD0 && docBytes[1] == (byte)0xCF &&
+                    docBytes[2] == (byte)0x11 && docBytes[3] == (byte)0xE0) {
+                isDocFile = true;
+                isValidFile = true;
+                System.out.println("检测到有效的DOC文件格式（OLE2格式）");
+            }
+            // 检查是否为DOCX (ZIP)
+            else if (docBytes[0] == (byte)0x50 && docBytes[1] == (byte)0x4B &&
+                    docBytes[2] == (byte)0x03 && docBytes[3] == (byte)0x04) {
+                isValidFile = true;
+                System.out.println("检测到有效的DOCX文件格式（ZIP格式）");
+            }
+        }
+
+        if (!isValidFile) {
+            System.out.println("检测到无效或损坏的文件格式");
+
+            // 作为最后的手段，尝试使用Apache Tika提取文本
+            try {
+                return extractTextWithTika(docBytes);
+            } catch (Exception e) {
+                System.err.println("Tika提取也失败: " + e.getMessage());
+
+                // 返回简单消息，而不是抛出异常
+                return "<p>文件内容无法读取或已损坏。请尝试重新上传正确格式的文件。</p>";
+            }
+        }
+        System.out.println(isDocFile);
+        if (isDocFile) {
+            // 处理DOC文件
+            try {
+                return convertDocToHtml(docBytes);
+            } catch (Exception e) {
+                System.err.println("处理.doc文件失败: " + e.getMessage());
+
+                // 尝试简单文本提取
+                try {
+                    return extractBasicTextFromDoc(docBytes);
+                } catch (Exception ex) {
+                    return "<p>无法处理DOC文件内容。文件可能已损坏。</p>";
+                }
+            }
+        } else {
+            // 处理DOCX文件
+            try {
+                // 直接使用字节流解析DOCX，避免写入文件系统
+                return extractContentFromDocxBytes(docBytes);
+            } catch (Exception e) {
+                System.err.println("Mammoth处理失败: " + e.getMessage());
+
+                // 尝试使用POI作为备选
+                try {
+                    return extractContentWithPOI(docBytes);
+                } catch (Exception ex) {
+                    System.err.println("POI处理也失败: " + ex.getMessage());
+                    return "<p>无法处理DOCX文件内容。文件可能已损坏。</p>";
+                }
+            }
+        }
+    }
+
+    // 使用POI直接提取DOCX文本内容
+    private String extractContentWithPOI(byte[] docxBytes) throws Exception {
+        StringBuilder html = new StringBuilder();
+
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(docxBytes);
+             XWPFDocument document = new XWPFDocument(bais)) {
+
+            for (XWPFParagraph paragraph : document.getParagraphs()) {
+                if (!paragraph.getText().trim().isEmpty()) {
+                    html.append("<p>").append(paragraph.getText()).append("</p>");
+                }
+            }
+        }
+
+        return html.toString();
+    }
+
+    // 从DOC提取基本文本
+    private String extractBasicTextFromDoc(byte[] docBytes) throws Exception {
+        StringBuilder html = new StringBuilder();
+
+        try (POIFSFileSystem fs = new POIFSFileSystem(new ByteArrayInputStream(docBytes));
+             HWPFDocument doc = new HWPFDocument(fs)) {
+
+            String text = doc.getDocumentText();
+            String[] paragraphs = text.split("\n");
+
+            for (String paragraph : paragraphs) {
+                if (!paragraph.trim().isEmpty()) {
+                    html.append("<p>").append(paragraph.trim()).append("</p>");
+                }
+            }
+        }
+
+        return html.toString();
+    }
+
+    // 使用ZipInputStream直接从字节流解析DOCX
+    private String extractContentFromDocxBytes(byte[] docxBytes) throws Exception {
+        // 先尝试Mammoth的方式
+        java.io.File tempFile = java.io.File.createTempFile("temp_", ".docx");
+        try {
+            // 写入临时文件
+            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                fos.write(docxBytes);
+            }
+
+            // 使用Mammoth读取
+            org.zwobble.mammoth.DocumentConverter converter = new org.zwobble.mammoth.DocumentConverter();
+            return converter.convertToHtml(tempFile).getValue();
+        } finally {
+            // 删除临时文件
+            if (tempFile.exists()) {
+                tempFile.delete();
+            }
+        }
+    }
+
+    // 使用Apache Tika提取文本（需要添加Tika依赖）
+    private String extractTextWithTika(byte[] docBytes) throws Exception {
+        Tika tika = new Tika();
+        try (InputStream stream = new ByteArrayInputStream(docBytes)) {
+            String content = tika.parseToString(stream);
+            return content;
+        } catch (Exception e) {
+            return "<p>文档解析失败: " + e.getMessage() + "</p>";
+        }
+    }
+
+    // 辅助方法：将字节数组转换为十六进制字符串
+    private String bytesToHex(byte[] bytes, int offset, int length) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = offset; i < offset + length && i < bytes.length; i++) {
+            sb.append(String.format("%02X ", bytes[i] & 0xFF));
+        }
+        return sb.toString();
+    }
+
+    private String convertDocToHtml(byte[] docBytes) throws Exception {
+        // 先尝试检测实际格式
+        boolean isDocxFormat = false;
+
+        // 通过文件头检测是否为DOCX (Office 2007+ XML)
+        if (docBytes.length > 4 &&
+                docBytes[0] == 0x50 && docBytes[1] == 0x4B &&
+                docBytes[2] == 0x03 && docBytes[3] == 0x04) {
+            isDocxFormat = true;
+        }
+
+        // 或者通过POI的异常来检测
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(docBytes);
+             POIFSFileSystem fs = new POIFSFileSystem(bais)) {
+            // 如果成功打开，则是OLE2格式的.doc
+            HWPFDocument doc = new HWPFDocument(fs);
+
+            // 处理真正的.doc文件
+            WordToHtmlConverter converter = new WordToHtmlConverter(
+                    DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument());
+            converter.processDocument(doc);
+
+            StringWriter writer = new StringWriter();
+            TransformerFactory.newInstance().newTransformer().transform(
+                    new DOMSource(converter.getDocument()),
+                    new StreamResult(writer));
+
+            String html = writer.toString();
+            String bodyContent = extractBodyContent(html);
+            String cleanedHtml = cleanHtmlForQuill(bodyContent);
+
+            System.out.println("使用POI HWPF处理.doc文件成功，HTML大小: " + cleanedHtml.length());
+            return cleanedHtml;
+        } catch (OfficeXmlFileException e) {
+            // 捕获到此异常说明是伪装成.doc的docx文件
+            System.out.println("检测到伪装成.doc的docx文件，使用XWPF处理");
+            isDocxFormat = true;
+        } catch (Exception e) {
+            System.err.println("处理.doc文件时发生错误: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+
+        // 处理实际上是DOCX的文件
+        if (isDocxFormat) {
+            try {
+                // 使用Mammoth处理DOCX
+                java.io.File tempFile = convertBytesToDocxFile(docBytes);
+                org.zwobble.mammoth.DocumentConverter converter = new org.zwobble.mammoth.DocumentConverter();
+                org.zwobble.mammoth.Result<String> result = converter.convertToHtml(tempFile);
+
+                System.out.println("使用Mammoth处理伪.doc文件成功，HTML大小: " + result.getValue().length());
+                return result.getValue();
+            } catch (Exception e) {
+                System.err.println("使用Mammoth处理伪.doc文件失败: " + e.getMessage());
+
+                // 如果Mammoth失败，尝试XWPF（Apache POI的DOCX处理器）
+                try (ByteArrayInputStream bais = new ByteArrayInputStream(docBytes);
+                     XWPFDocument document = new XWPFDocument(bais)) {
+
+                    StringBuilder html = new StringBuilder();
+                    for (XWPFParagraph paragraph : document.getParagraphs()) {
+                        html.append("<p>").append(paragraph.getText()).append("</p>");
+                    }
+
+                    System.out.println("使用XWPF处理伪.doc文件成功，HTML大小: " + html.length());
+                    return html.toString();
+                } catch (Exception ex) {
+                    System.err.println("使用XWPF处理伪.doc文件也失败: " + ex.getMessage());
+                    throw e; // 抛出原始异常
+                }
+            }
+        }
+
+        throw new RuntimeException("无法处理文档格式");
     }
 
     @PostMapping("/uploadNewFile")
@@ -535,58 +759,13 @@ public class FileController {
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(responseBody);
             } else if (isWordDocument(contentType, s3Key)) {
-                try {
-                    // Convert Word documents to HTML for editing while preserving formatting
-                    String htmlContent;
-                    // Check file format by content, not just extension
-                    try (ByteArrayInputStream bais = new ByteArrayInputStream(fileContent);
-                         PushbackInputStream pushbackInputStream = new PushbackInputStream(bais, 8)) {
-                        if (isOle2Format(pushbackInputStream)) {
-                            // Process .doc files
-                            try (POIFSFileSystem fs = new POIFSFileSystem(pushbackInputStream);
-                                 HWPFDocument document = new HWPFDocument(fs)) {
-                                WordToHtmlConverter converter = new WordToHtmlConverter(
-                                        DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument());
-                                converter.processDocument(document);
-                                StringWriter writer = new StringWriter();
-                                Transformer transformer = TransformerFactory.newInstance().newTransformer();
-                                transformer.transform(
-                                        new DOMSource(converter.getDocument()),
-                                        new StreamResult(writer));
-                                htmlContent = writer.toString();
-                                htmlContent = extractBodyContent(htmlContent);
-                            }
-                        } else {
-                            // Process .docx files
-                            WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage.load(pushbackInputStream);
+                // 添加word_document标记
+                responseBody.put("isWordDocument", true);
 
-                            // Configure HTML output options to preserve formatting
-                            HTMLSettings htmlSettings = Docx4J.createHTMLSettings();
-                            htmlSettings.setWmlPackage(wordMLPackage);
-                            htmlSettings.setImageDirPath("images/");
-                            htmlSettings.setImageTargetUri("images/");
-                            htmlSettings.setUserCSS(String.valueOf(false)); // For Quill compatibility
-
-                            // Convert to HTML
-                            ByteArrayOutputStream htmlOutputStream = new ByteArrayOutputStream();
-                            Docx4J.toHTML(htmlSettings, htmlOutputStream, Docx4J.FLAG_EXPORT_PREFER_XSL);
-                            htmlContent = htmlOutputStream.toString("UTF-8");
-                            htmlContent = extractBodyContent(htmlContent);
-                        }
-                    }
-
-                    // Update response with HTML content for editing
-                    responseBody.put("content", htmlContent);
-                    responseBody.put("originalMimeType", contentType); // Keep track of original mime type
-
-                    return ResponseEntity.ok()
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .body(responseBody);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body("Failed to convert Word document to HTML: " + e.getMessage());
-                }
+                // 仅返回基本信息，不包含内容
+                return ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(responseBody);
             } else {
                 // Binary files (images, PDFs, etc.): Return as download
                 return ResponseEntity.ok()
