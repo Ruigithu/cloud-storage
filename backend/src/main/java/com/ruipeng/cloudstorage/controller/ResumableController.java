@@ -5,6 +5,8 @@ import com.amazonaws.services.s3.model.PartSummary;
 import com.ruipeng.cloudstorage.entity.CompleteUploadRequest;
 import com.ruipeng.cloudstorage.entity.User;
 import com.ruipeng.cloudstorage.service.FileS3Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +21,7 @@ import java.util.stream.Collectors;
 public class ResumableController {
     private final FileS3Service fileS3Service;
     private final User user;
+    private static final Logger logger = LoggerFactory.getLogger(ResumableController.class);
 
     @Autowired
     public ResumableController(FileS3Service fileS3Service, User user) {
@@ -34,11 +37,15 @@ public class ResumableController {
             @RequestParam("fileName") String fileName,
             @RequestParam("mimeType") String mimeType,
             @RequestParam("fileSize") Long fileSize) {
-        System.out.println(ownerId+"get");
+        logger.info("Initiating upload for ownerId: {}, folderId: {}, fileName: {}", ownerId, folderId, fileName);
+
         try {
             Map<String, Object> result = fileS3Service.initiateResumableUpload(ownerId, folderId, fileName, mimeType, fileSize);
-            return ResponseEntity.ok(result);  // 返回JSON对象
+            logger.info("Upload initiated successfully with result: {}", result);
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
+            // 记录详细错误到后端日志
+            logger.error("Error initiating upload for file: {} - {}", fileName, e.getMessage(), e);
             return ResponseEntity.status(500).body("Error initiating upload: " + e.getMessage());
         }
     }
