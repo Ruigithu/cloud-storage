@@ -3,6 +3,7 @@ package com.ruipeng.cloudstorage.service;
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.*;
@@ -21,19 +22,17 @@ public class S3StorageService {
     private final AmazonS3 s3Client;
     private final String bucketName;
 
-    public S3StorageService(
-            @Value("${cloud.aws.credentials.access-key}") String accessKey,
-            @Value("${cloud.aws.credentials.secret-key}") String secretKey,
-            @Value("${cloud.aws.region.static}") String region,
-            @Value("${cloud.aws.s3.bucket}") String bucketName) {
 
-        this.bucketName = bucketName;
-        this.s3Client = AmazonS3ClientBuilder.standard()
-                .withCredentials(new AWSStaticCredentialsProvider(
-                        new BasicAWSCredentials(accessKey, secretKey)))
-                .withRegion(region)
-                .build();
-    }
+        public S3StorageService(
+                @Value("${cloud.aws.region.static}") String region,
+                @Value("${AWS_S3_BUCKET}") String bucketName) {
+
+            this.bucketName = bucketName;
+            this.s3Client = AmazonS3ClientBuilder.standard()
+                    .withCredentials(DefaultAWSCredentialsProviderChain.getInstance())
+                    .withRegion(region)
+                    .build();
+        }
 
 
     public String uploadFile(MultipartFile file, String keyName) throws IOException {
