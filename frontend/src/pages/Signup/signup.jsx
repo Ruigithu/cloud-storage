@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import {useState, useEffect, useCallback} from "react";
 import { useNavigate } from "react-router-dom";
 import "./signup.css";
 
@@ -19,7 +19,7 @@ function Signup() {
     };
 
     // 验证单个字段
-    const validateField = (name, value) => {
+    const validateField =useCallback ((name, value) => {
         switch (name) {
             case 'name':
                 if (!value.trim()) {
@@ -43,7 +43,7 @@ function Signup() {
             default:
                 return "";
         }
-    };
+    },[]);
 
     // 验证整个表单
     const validateForm = () => {
