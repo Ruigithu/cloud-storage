@@ -3,7 +3,7 @@ import React, {useCallback, useEffect, useState} from "react";
 import driveIcon from "../../../../assets/images/cloudversify-brands-solid.svg";
 import "./MyShared.css";
 import OperateSpecificSharedFile from "./OperateSpecificSharedFile/OperateSpecificSharedFile";
-import apiRequest from "../../../../utils/api";
+import apiRequest from "../../../../utils/apiRequest";
 
 function MyShared(){
     const [shares, setShares] = useState([]);

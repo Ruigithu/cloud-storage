@@ -1,6 +1,6 @@
 import React, {useRef, useState} from "react";
 import "./OperateSpecificSharedFile.css"
-import apiRequest from "../../../../../utils/api";
+import apiRequest from "../../../../../utils/apiRequest";
 
 
 const OperateSpecificSharedFile = ({shareId,userId,active,refresh}) => {

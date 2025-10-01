@@ -5,7 +5,7 @@ import "./Bin.css"
 import OperateSpecificDeletedFolder from "./OperateSpecificDeletedFolder/OperateSpecificDeletedFolder";
 import OperateSpecificDeletedFile from "./OperateSpecificDeletedFile/OperateSpecificDeletedFile";
 import {useNavigate} from "react-router-dom";
-import apiRequest from "../../../../utils/api";
+import apiRequest from "../../../../utils/apiRequest";
 
 function Bin(){
     const [files, setFiles] = useState([]);

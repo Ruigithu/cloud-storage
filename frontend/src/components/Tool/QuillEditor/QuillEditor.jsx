@@ -3,7 +3,7 @@ import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import './QuillEditor.css';
 import SockJS from 'sockjs-client';
-import apiRequest from "../../../utils/api";
+import apiRequest from "../../../utils/apiRequest";
 
 const QuillEditor = ({ documentId, userId }) => {
     const editorRef = useRef(null);

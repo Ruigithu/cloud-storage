@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './ShareFileDialog.css';
-import apiRequest from "../../../utils/api";
+import apiRequest from "../../../utils/apiRequest";
 
 function ShareFileDialog({ fileId }) {
     const [showModal, setShowModal] = useState(false);

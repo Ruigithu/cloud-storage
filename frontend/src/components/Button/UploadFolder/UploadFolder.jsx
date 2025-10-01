@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useCallback} from "react";
-import apiRequest from "../../../utils/api";
+import apiRequest from "../../../utils/apiRequest";
 
 function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
     const [isUploading, setIsUploading] = useState(false);

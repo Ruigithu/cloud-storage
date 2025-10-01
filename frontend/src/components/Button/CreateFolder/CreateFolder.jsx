@@ -1,5 +1,5 @@
 import CreateFolderDialog from "./CreateFolderDialog";
-import apiRequest from "../../../utils/api";
+import apiRequest from "../../../utils/apiRequest";
 
 
 function CreateFolder({parentId,userId,onFileUploadSuccess}){

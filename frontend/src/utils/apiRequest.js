@@ -1,13 +1,13 @@
-
 const apiRequest = async (url, options = {}) => {
     const token = localStorage.getItem('token');
 
+    options.headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+    };
+
     if (token) {
-        options.headers = {
-            "Content-Type": "application/json",
-            ...options.headers,
-            'Authorization': `Bearer ${token}`
-        };
+        options.headers['Authorization'] = `Bearer ${token}`;
     }
 
     if (options.body instanceof FormData) {
@@ -19,7 +19,6 @@ const apiRequest = async (url, options = {}) => {
     if (response.status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('isLoggedIn');
-        console.log("401");
         window.location.href = '/login';
         return null;
     }

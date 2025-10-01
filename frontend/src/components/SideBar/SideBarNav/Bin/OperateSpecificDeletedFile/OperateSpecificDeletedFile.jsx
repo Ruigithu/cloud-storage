@@ -1,6 +1,6 @@
 import React, {useRef, useState} from "react";
 import "./OperateSpecificDeletedFile.css"
-import apiRequest from "../../../../../utils/api";
+import apiRequest from "../../../../../utils/apiRequest";
 
 
 const OperateSpecificDeletedFile = ({file,userId}) => {

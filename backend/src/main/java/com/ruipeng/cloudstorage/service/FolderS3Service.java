@@ -140,7 +140,6 @@ public class FolderS3Service {
                 fileStatus.put("size", file.getSize());
 
                 if (version.getUploadId() != null) {
-                    // 还在上传中
                     List<PartSummary> parts = s3StorageService.listParts(version.getStoragePath(), version.getUploadId());
                     long uploadedBytes = parts.stream().mapToLong(PartSummary::getSize).sum();
                     fileStatus.put("status", "uploading");
@@ -148,7 +147,6 @@ public class FolderS3Service {
                     fileStatus.put("progress", (double) uploadedBytes / file.getSize());
                     fileStatus.put("uploadId", version.getUploadId());
                 } else {
-                    // 上传完成
                     fileStatus.put("status", "completed");
                     fileStatus.put("progress", 1.0);
                 }

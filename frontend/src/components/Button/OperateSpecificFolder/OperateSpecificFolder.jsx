@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import "./OperateSpecificFolder.css"
-import apiRequest from "../../../utils/api";
+import apiRequest from "../../../utils/apiRequest";
 
 const OperateSpecificFolder = ({ folder, userId }) => {
     const [isMenuVisible, setIsMenuVisible] = useState(false);

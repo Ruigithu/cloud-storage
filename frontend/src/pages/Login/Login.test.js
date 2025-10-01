@@ -1,108 +1,126 @@
-import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import Login from "./Login";  // 根据你的组件路径调整
-import fetchMock from "jest-fetch-mock";
-import {act} from "react";
+import {render, screen, fireEvent, waitFor} from "@testing-library/react";
+import {MemoryRouter} from "react-router-dom";
 import React from 'react';
+import Login from "./login";
 
-// 启用 fetch 模拟
-fetchMock.enableMocks();
+const mockNavigate = jest.fn();
 
-describe("Login Component", () => {
-    beforeEach(() => {
-        fetchMock.resetMocks(); // 每次测试前重置 fetch
-    });
+jest.mock("react-router-dom",()=>({
+    ...jest.requireActual("react-router-dom"),
+    useNavigate:()=>mockNavigate,
+}));
+global.fetch = jest.fn();
 
-    test("renders the login form", () => {
+describe("Login Component",()=>{
+    beforeEach(()=>{
         render(
             <MemoryRouter>
-                <Login />
+                <Login/>
             </MemoryRouter>
         );
-
-        // 检查 UI 是否正确渲染
-        expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-        expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
     });
 
-    test("allows user to type in username and password fields", () => {
-        render(
-            <MemoryRouter>
-                <Login />
-            </MemoryRouter>
-        );
 
-        // 获取输入框
-        const usernameInput = screen.getByLabelText(/username/i);
-        const passwordInput = screen.getByLabelText(/password/i);
-
-        // 模拟输入
-        fireEvent.change(usernameInput, { target: { value: "testuser" } });
-        fireEvent.change(passwordInput, { target: { value: "testpass" } });
-
-        // 断言输入框是否更新
-        expect(usernameInput.value).toBe("testuser");
-        expect(passwordInput.value).toBe("testpass");
+    test("testing whether UI elements got rendered",()=>{
+        expect(screen.getByRole("button",{name:/sign in/i})).toBeInTheDocument();
+        expect(screen.getByPlaceholderText("yourname@example.com",{exact:true})).toBeInTheDocument();
+        expect(screen.getByPlaceholderText("••••••••",{exact:true})).toBeInTheDocument();
     });
 
-    test("submits the form and calls the login API", async () => {
-        fetchMock.mockResponseOnce(JSON.stringify({ success: true }), { status: 200 });
+    test("testing whether the initial states are correct",()=>{
+        expect(screen.getByPlaceholderText("yourname@example.com",{exact:true})).toHaveValue("");
+        expect(screen.getByPlaceholderText("••••••••",{exact:true})).toHaveValue("");
+    });
 
-        render(
-            <MemoryRouter>
-                <Login />
-            </MemoryRouter>
-        );
+    test("testing whether changing the input of email&password can lead to real-time change",()=>{
 
-        // 获取输入框和按钮
-        const usernameInput = screen.getByLabelText(/username/i);
-        const passwordInput = screen.getByLabelText(/password/i);
-        const submitButton = screen.getByRole("button", { name: /sign in/i });
+        const emailInput = screen.getByPlaceholderText("yourname@example.com",{exact:true});
+        const passwordInput = screen.getByPlaceholderText("••••••••",{exact:true});
 
-        // 模拟输入
-        fireEvent.change(usernameInput, { target: { value: "testuser" } });
-        fireEvent.change(passwordInput, { target: { value: "testpass" } });
-// 使用 act 包装点击操作
-        await act(async () => {
-            fireEvent.click(submitButton);
+        fireEvent.change(emailInput,{target:{value:"test@gmail.com"}});
+        fireEvent.change(passwordInput,{target:{value:"123456"}});
+
+        expect(emailInput).toHaveValue("test@gmail.com");
+        expect(passwordInput).toHaveValue("123456");
+    });
+
+    test("testing whether clicking the sign in button will lead to button-disabled",()=>{
+        const { signInButton } =setTheValidTestUsernameAndPassword();
+        fireEvent.click(signInButton);
+        expect(signInButton).toBeDisabled();
+    });
+
+    test("testing whether the errors can be rendered when input the invalid emails",async ()=>{
+        const signInButton = screen.getByRole("button",{name:/sign in/i});
+
+        fireEvent.click(signInButton);
+
+        await waitFor(()=> {
+                expect(screen.getByText(/email can't be empty/i, {exact: true})).toBeInTheDocument();
+                expect(screen.getByText(/password can't be empty/i, {exact: true})).toBeInTheDocument();
+            }
+        )
+    });
+
+    test("testing whether the errors can get disappeared when input the valid emails",async ()=>{
+        const emailInput = screen.getByPlaceholderText("yourname@example.com",{exact:true});
+        const passwordInput = screen.getByPlaceholderText("••••••••",{exact:true});
+
+        fireEvent.change(emailInput,{target:{value:"test@gmail.com"}});
+        fireEvent.change(passwordInput,{target:{value:"123456"}});
+
+        fireEvent.blur(emailInput);
+        fireEvent.blur(passwordInput);
+
+        await waitFor(()=> {
+                expect(screen.queryByText(/email can't be empty/i, {exact: true})).not.toBeInTheDocument();
+                expect(screen.queryByText(/password can't be empty/i, {exact: true})).not.toBeInTheDocument();
+            }
+        )
+    });
+
+    test("testing when handleSubmit successfully and navigate to home",async ()=>{
+
+        fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ token: "123456",username:"jadeisme667@gmail.com" }),
         });
 
-        // 确保 fetch 被调用
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(fetchMock).toHaveBeenCalledWith(
-            expect.stringContaining("/login"),
-            expect.objectContaining({
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded",
-                            "Accept": "application/json" },
-                body: expect.stringContaining("username=testuser&password=testpass"),
-            })
-        );
-    });
+        const {signInButton}=setTheValidTestUsernameAndPassword();
+        fireEvent.click(signInButton);
 
-    test("handles login failure gracefully", async () => {
-        fetchMock.mockResponseOnce(JSON.stringify({ error: "Invalid credentials" }), { status: 401 });
-
-        render(
-            <MemoryRouter>
-                <Login />
-            </MemoryRouter>
-        );
-
-        const usernameInput = screen.getByLabelText(/username/i);
-        const passwordInput = screen.getByLabelText(/password/i);
-        const submitButton = screen.getByRole("button", { name: /sign in/i });
-
-        fireEvent.change(usernameInput, { target: { value: "wronguser" } });
-        fireEvent.change(passwordInput, { target: { value: "wrongpass" } });
-
-        // 使用 act 包装点击操作
-        await act(async () => {
-            fireEvent.click(submitButton);
+        await waitFor(()=>{
+            expect(mockNavigate).toBeCalledWith("/home");
         });
 
-        // 可以检查 console.error 是否被调用
-        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
-});
+
+    test("testing when fail to handleSubmit and display errors",async ()=>{
+
+        fetch.mockResolvedValueOnce({
+            ok: false,
+            json: async () => ({message:"invalid email or password"}),
+        });
+
+        const {signInButton}=setTheValidTestUsernameAndPassword();
+        fireEvent.click(signInButton);
+
+        await waitFor(()=>{
+            expect(screen.getByText("invalid email or password",{exact:true})).toBeInTheDocument();
+        })
+
+    });
+
+    function setTheValidTestUsernameAndPassword(){
+
+        const emailInput = screen.getByPlaceholderText("yourname@example.com",{exact:true});
+        const passwordInput = screen.getByPlaceholderText("••••••••",{exact:true});
+
+        const signInButton = screen.getByRole("button",{name:/sign in/i});
+
+        fireEvent.change(emailInput,{target:{value:"test@gmail.com"}});
+        fireEvent.change(passwordInput,{target:{value:"123456"}});
+
+        return {signInButton}
+    }
+})

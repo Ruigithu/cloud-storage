@@ -21,8 +21,6 @@ import ShareCanceled from "./pages/Share/ShareCanceled";
              <Route path="/editor/:fileId" element={<EditorPage/>}/>
              <Route path="/share/:shareId" element={<ShareHandler/>}/>
              <Route path="/shareCanceled" element={<ShareCanceled/>}/>
-
-
          </Routes>
      </BrowserRouter>
     );

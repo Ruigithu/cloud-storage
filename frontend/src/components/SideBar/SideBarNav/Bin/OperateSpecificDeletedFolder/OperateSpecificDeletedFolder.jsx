@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import "./OperateSpecificDeletedFolder.css"
-import apiRequest from "../../../../../utils/api";
+import apiRequest from "../../../../../utils/apiRequest";
 
 const OperateSpecificDeletedFolder = ({ folder, userId }) => {
     const [isMenuVisible, setIsMenuVisible] = useState(false);

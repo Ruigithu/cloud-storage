@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import apiRequest from "../../utils/api";
+import apiRequest from "../../utils/apiRequest";
 
 
 const ShareHandler = () => {

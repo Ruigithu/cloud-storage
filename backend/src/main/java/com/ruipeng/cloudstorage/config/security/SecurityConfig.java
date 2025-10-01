@@ -90,6 +90,7 @@ public class SecurityConfig {
                                 response.setStatus(HttpServletResponse.SC_OK);
                                 response.setContentType("application/json");
                                 response.getWriter().write(
+                                        //format not safe
                                         String.format("{\"success\":true,\"token\":\"%s\",\"username\":\"%s\"}",
                                                 token, username));
                             } else {

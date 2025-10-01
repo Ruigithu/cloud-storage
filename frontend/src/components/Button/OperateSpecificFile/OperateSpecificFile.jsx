@@ -1,7 +1,7 @@
 import React, {useRef, useState} from "react";
 import "./OperateSpecificFile.css"
 import ShareFileDialog from "../ShareFileDialog/ShareFileDialog";
-import apiRequest from "../../../utils/api";
+import apiRequest from "../../../utils/apiRequest";
 
 
 const OperateSpecificFile = ({file,userId}) => {

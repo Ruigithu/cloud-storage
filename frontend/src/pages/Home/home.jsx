@@ -9,7 +9,7 @@ import AddNewContextMenu     from "../../components/Button/AddNewContextMenu/Add
 import OperateSpecificFile from "../../components/Button/OperateSpecificFile/OperateSpecificFile";
 import Sidebar from "../../components/SideBar/SideBar";
 import OperateSpecificFolder from "../../components/Button/OperateSpecificFolder/OperateSpecificFolder";
-import apiRequest from "../../utils/api";
+import apiRequest from "../../utils/apiRequest";
 
 
 function Home() {
@@ -20,7 +20,8 @@ function Home() {
     const dispatch=useDispatch();
     const navigate =useNavigate();
     const [navigationPath, setNavigationPath] = useState([{ id: 1, name: 'root' }]);
-    //get userid, restore it in localstorage
+
+
     const fetchUserId =useCallback( async()=>{
         try {
             const response = await apiRequest(`${process.env.REACT_APP_API_URL}/getUserInfo`,
@@ -30,15 +31,12 @@ function Home() {
                 });
             if (response.ok) {
                 const userInfo = await response.json();
-                console.log(userInfo+`haha`);
                 dispatch(setUserInfo(userInfo));
                 if (userInfo?.userId !== undefined && userInfo?.userName!==undefined) {
                     localStorage.setItem('userId', userInfo.userId);
                     localStorage.setItem(`${userInfo.userId}`,userInfo.userName);
                     setActualUserId(userInfo.userId);
-                    console.log(`userId:`+localStorage.getItem('userId'));
-                    console.log(`userName:`+localStorage.getItem(`${userInfo.userId}`));
-                }
+                 }
             }
         }catch (error){
             console.error('Failed to fetch user info:', error);
