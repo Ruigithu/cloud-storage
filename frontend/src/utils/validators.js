@@ -8,7 +8,10 @@ export const ERROR_MESSAGES = {
     EMPTY_PASSWORD: "password can't be empty",
     PASSWORD_TOO_SHORT: `password at least has ${MIN_PASSWORD_LENGTH} characters`,
     LOGIN_FAILED: 'login failed',
-    INVALID_CREDENTIALS: 'invalid password or email, please try again'
+    INVALID_CREDENTIALS: 'invalid password or email, please try again',
+    EMPTY_USERNAME:"Name can't be empty",
+    SIGNUP_FAILED: "Registration failed. Please try again.",
+    EMAIL_EXISTS: "Email already exists",
 };
 
 export const emailValidator = (value) => {
@@ -25,9 +28,16 @@ export const passwordValidator = (value) => {
     return "";
 };
 
+export const usernameValidator=(value)=>{
+    const trimmedValue = value.trim();
+    if (isEmpty(trimmedValue)) return ERROR_MESSAGES.EMPTY_USERNAME;
+    return "";
+}
+
 const FIELD_VALIDATORS = {
-    username: emailValidator,
-    password: passwordValidator
+    email: emailValidator,
+    password: passwordValidator,
+    username:usernameValidator
 };
 
 export const validateField = (name, value) => {
@@ -35,8 +45,16 @@ export const validateField = (name, value) => {
     return validator ? validator(value) : "";
 };
 
-export const validateLoginForm = (username, password) => {
+export const validateLoginForm = (email, password) => {
     return {
+        email: validateField('email', email),
+        password: validateField('password', password)
+    };
+};
+
+export const validateSignUpForm = (username,email,password) => {
+    return {
+        email: validateField('email', email),
         username: validateField('username', username),
         password: validateField('password', password)
     };

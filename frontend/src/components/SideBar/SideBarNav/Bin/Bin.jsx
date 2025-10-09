@@ -43,30 +43,25 @@ function Bin(){
 
                 const seenIds = new Map();
 
-                // Process folders first
                 const uniqueFolders = folderData.filter(folder => {
 
-                    // Check if we've seen this ID before
                     if (seenIds.has(folder.id)) {
                         console.warn(`Duplicate folder ID found: ${folder.id}`);
                         return false;
                     }
 
-                    // Mark this ID as seen
                     seenIds.set(folder.id, true);
                     return true;
                 });
 
-                // Process files
                 const uniqueFiles = fileData.filter(file => {
 
-                    // Check if we've seen this ID before
+
                     if (seenIds.has(file.id)) {
                         console.warn(`Duplicate file ID found: ${file.id}`);
                         return false;
                     }
 
-                    // Mark this ID as seen
                     seenIds.set(file.id, true);
                     return true;
                 });

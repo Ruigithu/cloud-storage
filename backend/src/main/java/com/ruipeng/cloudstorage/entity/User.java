@@ -1,7 +1,4 @@
 package com.ruipeng.cloudstorage.entity;
-
-
-
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;

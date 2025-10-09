@@ -9,7 +9,6 @@ function MyShared(){
     const [shares, setShares] = useState([]);
     const actualUserId = localStorage.getItem('userId');
 
-    // 获取文件夹列表
     const fetchSharedFiles =useCallback( async () => {
         try {
             const response = await apiRequest(

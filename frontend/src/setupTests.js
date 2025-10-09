@@ -1,13 +1,9 @@
-// jest-dom adds custom jest matchers for asserting on DOM nodes
 import '@testing-library/jest-dom';
 
-// Set up global mocks for URL methods
 if (typeof window !== 'undefined') {
-    // Mock URL methods
     window.URL.createObjectURL = jest.fn(() => 'blob:test-url');
     window.URL.revokeObjectURL = jest.fn();
 
-    // Any other browser APIs you need to mock
 }
 if (typeof window === 'undefined') {
     const { JSDOM } = require('jsdom');
@@ -23,5 +19,4 @@ if (typeof window === 'undefined') {
     global.Node = dom.window.Node;
 }
 
-// React 18 act environment
 global.IS_REACT_ACT_ENVIRONMENT = true;

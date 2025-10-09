@@ -1,148 +1,109 @@
-import {useState, useEffect, useCallback} from "react";
+import {useState, useEffect} from "react";
 import { useNavigate } from "react-router-dom";
 import "./signup.css";
+import {ERROR_MESSAGES, validateField, validateSignUpForm} from "../../utils/validators";
+import {signupAPI} from "../../services/authService";
 
 function Signup() {
-    const [name, setName] = useState('');
+    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState({});
-    const [touched, setTouched] = useState({ name: false, email: false, password: false });
+    const [touched, setTouched] = useState({ username: false, email: false, password: false });
     const [signupError, setSignupError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
-    // 验证电子邮件格式
-    const isValidEmail = (email) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    };
 
-    // 验证单个字段
-    const validateField =useCallback ((name, value) => {
-        switch (name) {
-            case 'name':
-                if (!value.trim()) {
-                    return "Name can't be empty";
-                }
-                return "";
-            case 'email':
-                if (!value.trim()) {
-                    return "Email can't be empty";
-                } else if (!isValidEmail(value.trim())) {
-                    return "Invalid email address";
-                }
-                return "";
-            case 'password':
-                if (!value) {
-                    return "Password can't be empty";
-                } else if (value.length < 6) {
-                    return "Password must be at least 6 characters";
-                }
-                return "";
-            default:
-                return "";
-        }
-    },[]);
-
-    // 验证整个表单
     const validateForm = () => {
-        const newErrors = {
-            name: validateField('name', name),
-            email: validateField('email', email),
-            password: validateField('password', password)
-        };
-
+        const newErrors = validateSignUpForm(username,email,password);
         setErrors(newErrors);
-        return !newErrors.name && !newErrors.email && !newErrors.password;
+        return !newErrors.username &&!newErrors.email && !newErrors.password;
     };
 
-    // 当输入字段变化时验证
+
     useEffect(() => {
-        if (touched.name) {
-            const nameError = validateField('name', name);
-            setErrors(prev => ({ ...prev, name: nameError }));
+        if (touched.username) {
+            const nameError = validateField('username', username);
+            setErrors(prev => ({ ...prev, username: nameError }));
         }
-    }, [name, touched.name,validateField]);
+    }, [username, touched.username]);
 
     useEffect(() => {
         if (touched.email) {
             const emailError = validateField('email', email);
             setErrors(prev => ({ ...prev, email: emailError }));
         }
-    }, [email, touched.email,validateField]);
+    }, [email, touched.email]);
 
     useEffect(() => {
         if (touched.password) {
             const passwordError = validateField('password', password);
             setErrors(prev => ({ ...prev, password: passwordError }));
         }
-    }, [password, touched.password,validateField]);
+    }, [password, touched.password]);
+
+    const handleSignupSuccess = (data) => {
+        console.log('Signup successful:', data);
+        navigate("/login");
+    };
+
+
+    const performSignup = async () => {
+        const userData = {
+            email: email.trim(),
+            name:username.trim(),
+            password: password.trim()
+        };
+
+        try {
+            const data = await signupAPI(userData);
+            handleSignupSuccess(data);
+        } catch (error) {
+            console.error('Signup failed:', error);
+            setSignupError(error.message || ERROR_MESSAGES.SIGNUP_FAILED);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
         setSignupError('');
+        setTouched({
+            username: true,
+            email: true,
+            password: true
+        });
 
-        // 标记所有字段为已触碰
-        setTouched({ name: true, email: true, password: true });
-
-        // 表单验证
         if (!validateForm()) {
             return;
         }
 
         setIsLoading(true);
+        await performSignup();
+        setIsLoading(false);
+    };
 
-        const userData = {
-            name: name.trim(),
-            email: email.trim(),
-            passwordHash: password.trim() // 在后端，变量名是 passwordHash
-        };
-
-        try {
-            const response = await fetch(
-                `${process.env.REACT_APP_API_URL}/signup`, {
-                    method: "POST",
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify(userData)
-                });
-
-            if (response.ok) {
-                navigate("/login");
-            } else {
-                // 处理注册失败
-                const errorData = await response.json().catch(() => ({}));
-                setSignupError(errorData.message || 'Registration failed. Please try again.');
-            }
-        } catch (error) {
-            console.error('Signup failed:', error);
-            setSignupError('Registration failed. Please try again later.');
-        } finally {
-            setIsLoading(false);
+    const clearSignupErrorIfExists = () => {
+        if (signupError) {
+            setSignupError('');
         }
     };
 
-    // 处理输入变化
+
     const handleChange = (e) => {
         const { name, value } = e.target;
-
-        if (name === 'name') {
-            setName(value);
+        if (name === 'username') {
+            setUsername(value);
         } else if (name === 'email') {
             setEmail(value);
         } else if (name === 'password') {
             setPassword(value);
         }
 
-        if (signupError) {
-            setSignupError('');
-        }
+        clearSignupErrorIfExists();
     };
 
-    // 处理失去焦点事件
     const handleBlur = (e) => {
         const { name } = e.target;
         setTouched(prev => ({ ...prev, [name]: true }));
@@ -160,29 +121,27 @@ function Signup() {
                     <div className="error-message global-error">{signupError}</div>
                 )}
 
-                <label htmlFor="name">
+                <label>
                     Full Name
                     <input
                         className={`signup-input ${errors.name && touched.name ? 'input-error' : ''}`}
-                        id="name"
-                        name="name"
+                        name="username"
                         type="text"
                         placeholder="Rui Peng"
-                        value={name}
+                        value={username}
                         onChange={handleChange}
                         onBlur={handleBlur}
                         disabled={isLoading}
                     />
-                    {errors.name && touched.name && (
-                        <div className="error-message">{errors.name}</div>
+                    {errors.username && touched.username && (
+                        <div className="error-message">{errors.username}</div>
                     )}
                 </label>
 
-                <label htmlFor="email">
+                <label>
                     Email Address
                     <input
                         className={`signup-input ${errors.email && touched.email ? 'input-error' : ''}`}
-                        id="email"
                         name="email"
                         type="email"
                         placeholder="yourname@example.com"
@@ -196,11 +155,10 @@ function Signup() {
                     )}
                 </label>
 
-                <label htmlFor="password">
+                <label>
                     Password
                     <input
                         className={`signup-input ${errors.password && touched.password ? 'input-error' : ''}`}
-                        id="password"
                         name="password"
                         type="password"
                         placeholder="••••••••"

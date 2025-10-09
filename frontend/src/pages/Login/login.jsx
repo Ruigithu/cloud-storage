@@ -6,25 +6,25 @@ import {loginAPI} from "../../services/authService";
 import {saveAuthData} from "../../utils/authHelper";
 
 function Login(){
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState({});
-    const [touched, setTouched] = useState({username: false, password: false});
+    const [touched, setTouched] = useState({email: false, password: false});
     const [loginError, setLoginError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
 
     const validateForm = () => {
-        const newErrors = validateLoginForm(username, password);
+        const newErrors = validateLoginForm(email, password);
         setErrors(newErrors);
-        return !newErrors.username && !newErrors.password;
+        return !newErrors.email && !newErrors.password;
     };
 
 
     const handleLoginSuccess = (data) => {
         if (data.token) {
-            saveAuthData(data.token,data.username);
+            saveAuthData(data.token,data.email);
             navigate("/home");
         }
     };
@@ -32,7 +32,7 @@ function Login(){
 
     const performLogin = async () => {
         const credentials = {
-            username: username.trim(),
+            email: email.trim(),
             password: password.trim()
         };
 
@@ -49,9 +49,8 @@ function Login(){
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-
         clearLoginErrorIfExists();
-        setTouched({username: true, password: true});
+        setTouched({email: true, password: true});
 
         if (!validateForm()) {
             return;
@@ -70,7 +69,7 @@ function Login(){
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        name === 'username' ? setUsername(value) : setPassword(value);
+        name === 'email' ? setEmail(value) : setPassword(value);
         clearLoginErrorIfExists();
     };
 
@@ -81,11 +80,11 @@ function Login(){
 
 
     useEffect(() => {
-        if (touched.username) {
-            const usernameError = validateField('username', username);
-            setErrors(prev => ({...prev, username: usernameError}));
+        if (touched.email) {
+            const usernameError = validateField('email', email);
+            setErrors(prev => ({...prev, email: usernameError}));
         }
-    }, [username, touched.username]);
+    }, [email, touched.email]);
 
     useEffect(() => {
         if (touched.password) {
@@ -120,16 +119,16 @@ function Login(){
                 <label>
                     Email Address
                     <input
-                        className={getInputClassName('username')}
-                        name="username"
+                        className={getInputClassName('email')}
+                        name="email"
                         type="email"
                         placeholder="yourname@example.com"
-                        value={username}
+                        value={email}
                         onChange={handleChange}
                         onBlur={handleBlur}
                         disabled={isLoading}
                     />
-                    {renderErrorMessage('username')}
+                    {renderErrorMessage('email')}
                 </label>
 
                 <label>

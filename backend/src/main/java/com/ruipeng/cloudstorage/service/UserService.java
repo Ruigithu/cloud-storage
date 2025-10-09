@@ -29,7 +29,6 @@ public class UserService {
             }
             user.setPasswordHash(encoder.encode(user.getPasswordHash()));
             int i = userMapper.insertUser(user);
-            System.out.println(i);
             if(i == 1){
                 return true;
             }

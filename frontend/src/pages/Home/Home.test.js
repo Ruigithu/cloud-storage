@@ -6,13 +6,10 @@ import { configureStore } from '@reduxjs/toolkit';
 import userReducer from '../../components/Tool/UserInfo/userSlice';
 import Home from './Home';
 
-// Mock fetch API
 global.fetch = jest.fn();
 
-// Mock environment variables
 process.env.REACT_APP_API_URL = 'http://test-api.example.com';
 
-// Mock localStorage
 const localStorageMock = (() => {
     let store = {};
     return {

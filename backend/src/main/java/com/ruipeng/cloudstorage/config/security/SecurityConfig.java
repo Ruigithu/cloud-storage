@@ -24,7 +24,6 @@ import org.springframework.web.filter.CorsFilter;
 @EnableWebSecurity
 public class SecurityConfig {
     private final AppUserDetailsService userDetailsService;
-    private final AppAuthenticationFailureHandler failureHandler;
     private final CorsFilter corsFilter;
     private final CorsConfiguration corsConfiguration;
     private final JWTService jwtService;
@@ -32,15 +31,13 @@ public class SecurityConfig {
 
 
     @Autowired
-    public SecurityConfig(AppUserDetailsService userDetailsService, AppAuthenticationFailureHandler failureHandler, CorsFilter corsFilter, CorsConfiguration corsConfiguration, JWTService jwtService, JWTFilter jwtFilter) {
+    public SecurityConfig(AppUserDetailsService userDetailsService, CorsFilter corsFilter, CorsConfiguration corsConfiguration, JWTService jwtService, JWTFilter jwtFilter) {
         this.userDetailsService = userDetailsService;
-        this.failureHandler = failureHandler;
         this.corsFilter = corsFilter;
         this.corsConfiguration = corsConfiguration;
         this.jwtService = jwtService;
         this.jwtFilter = jwtFilter;
     }
-
 
 
 
@@ -51,8 +48,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(request -> corsConfiguration))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
-                                "/signup",
-                                "/login",
+                                "/api/auth/**",
                                 "/share/**",
                                 "/download",
                                 "/css/**",
@@ -77,37 +73,6 @@ public class SecurityConfig {
                         })
                 ).sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-                .formLogin(form -> form
-                        .loginPage("/login")
-                        .loginProcessingUrl("/login")
-                        .successHandler((request, response, authentication) -> {
-                            if (request.getHeader("Accept") != null &&
-                                    request.getHeader("Accept").contains("application/json")) {
-                                String username = authentication.getName();
-                                String token = jwtService.generateToken(username);
-
-                                response.setStatus(HttpServletResponse.SC_OK);
-                                response.setContentType("application/json");
-                                response.getWriter().write(
-                                        //format not safe
-                                        String.format("{\"success\":true,\"token\":\"%s\",\"username\":\"%s\"}",
-                                                token, username));
-                            } else {
-                                response.sendRedirect("/home");
-                            }
-                        })
-                        .failureHandler((request, response, exception) -> {
-                            if (request.getHeader("Accept") != null &&
-                                    request.getHeader("Accept").contains("application/json")) {
-                                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                                response.setContentType("application/json");
-                                response.getWriter().write("{\"error\":\"Invalid credentials\"}");
-                            } else {
-                                failureHandler.onAuthenticationFailure(request, response, exception);
-                            }
-                        })
-                        .permitAll()
                 );
 
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
