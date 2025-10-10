@@ -29,9 +29,7 @@ function Bin() {
 
     const {
         rootFolderId,
-        setRootFolderId,
         navigationPath,
-        setNavigationPath,
         handleFolderClick,
         handleBackward,
         handlePathClick
