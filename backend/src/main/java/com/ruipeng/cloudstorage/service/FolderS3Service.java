@@ -557,7 +557,7 @@ public class FolderS3Service {
         return uniqueName;
     }
 
-    // 全局 Set 用于跟踪已使用的路径
+
     private final Set<String> usedPaths = Collections.synchronizedSet(new HashSet<>());
 
 

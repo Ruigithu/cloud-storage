@@ -1,214 +1,135 @@
 import Sidebar from "../../SideBar";
 import React, {useCallback, useEffect, useState} from "react";
-import driveIcon from "../../../../assets/images/cloudversify-brands-solid.svg";
 import "./Bin.css"
 import OperateSpecificDeletedFolder from "./OperateSpecificDeletedFolder/OperateSpecificDeletedFolder";
 import OperateSpecificDeletedFile from "./OperateSpecificDeletedFile/OperateSpecificDeletedFile";
 import {useNavigate} from "react-router-dom";
-import apiRequest from "../../../../utils/apiRequest";
+import {useFileNavigation} from "../../../../hooks/useFileNavigation";
+import Header from "../../../Layout/Header";
+import FolderPath from "../../../Navigation/FolderPath";
+import FolderRow from "../../../FileList/FolderRow";
+import FileRow from "../../../FileList/FileRow";
+import {getDeletedFilesAndFolders} from "../../../../services/binService";
 
-function Bin(){
-    const [files, setFiles] = useState([]);
-    const [folders, setFolders] = useState([]);
-    const actualUserId = localStorage.getItem('userId');
-    const [rootFolderId, setRootFolderId] = useState(localStorage.getItem('rootFolderId'));
-    const [navigationPath, setNavigationPath] = useState([{ id: localStorage.getItem('rootFolderId'), name: 'root' }]);
+function Bin() {
     const navigate = useNavigate();
 
-    const formatFileSize = (bytes) => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    };
+    const userId = localStorage.getItem('userId');
 
-    const fetchFoldersAndFiles =useCallback( async () => {
-        try {
-            const [fileResponse, folderResponse] = await Promise.all([
-                apiRequest(`${process.env.REACT_APP_API_URL}/getAllDeletedFiles?folderId=${rootFolderId}&ownerId=${localStorage.getItem('userId')}`, {
-                    method: 'GET',
-                    headers: { "Content-Type": "application/json" },
-                    credentials: 'include',
-                }),
-                apiRequest(`${process.env.REACT_APP_API_URL}/getAllDeletedFolders?parentId=${rootFolderId}&userId=${localStorage.getItem('userId')}`, {
-                    method: 'GET',
-                    headers: { "Content-Type": "application/json" },
-                    credentials: 'include',
-                })
-            ]);
-
-            if (fileResponse.ok && folderResponse.ok) {
-                const [fileData, folderData] = await Promise.all([fileResponse.json(), folderResponse.json()]);
-
-                const seenIds = new Map();
-
-                const uniqueFolders = folderData.filter(folder => {
-
-                    if (seenIds.has(folder.id)) {
-                        console.warn(`Duplicate folder ID found: ${folder.id}`);
-                        return false;
-                    }
-
-                    seenIds.set(folder.id, true);
-                    return true;
-                });
-
-                const uniqueFiles = fileData.filter(file => {
-
-
-                    if (seenIds.has(file.id)) {
-                        console.warn(`Duplicate file ID found: ${file.id}`);
-                        return false;
-                    }
-
-                    seenIds.set(file.id, true);
-                    return true;
-                });
-
-                setFiles(uniqueFiles);
-                setFolders(uniqueFolders);
-            }
-        } catch (error) {
-            console.error('Error fetching data:', error);
-        }
-    },[rootFolderId]);
 
     useEffect(() => {
-        if (actualUserId) {
-            fetchFoldersAndFiles();
+        if (!userId) {
+            console.warn('User not logged in, redirecting to login page');
+            navigate('/login', { replace: true });
         }
-    }, [rootFolderId, actualUserId,fetchFoldersAndFiles]);
+    }, [userId, navigate]);
 
-    const getFileIcon = (fileType) => {
-        if (fileType.startsWith("image/")) return "fa-regular fa-image"; // img
-        if (fileType.startsWith("video/")) return "fa-regular fa-file-video"; // video
-        if (fileType.startsWith("audio/")) return "fa-regular fa-file-audio"; // audio
-        if (fileType === "application/pdf") return "fa-regular fa-file-pdf"; // PDF
-        if (fileType.includes("word")) return "fa-regular fa-file-word"; // Word
-        if (fileType.includes("excel")) return "fa-regular fa-file-excel"; // Excel
-        if (fileType.includes("powerpoint")) return "fa-regular fa-file-powerpoint"; // PPT
-        return "fa-regular fa-file";
-    };
+    const [files, setFiles] = useState([]);
+    const [folders, setFolders] = useState([]);
 
-    const fileIcons = {
-        "fa-regular fa-image": "#007cdb",  // blue（img）
-        "fa-regular fa-file-video":"#ff4500", // orange（video）
-        "fa-regular fa-file-audio":"#32cd32", // green（audio）
-        "fa-regular fa-file-pdf":"#ff0000", // red（PDF）
-        "fa-regular fa-file-word":"#2b579a", // dark blue（Word）
-        "fa-regular fa-file-excel":"#217346", // green（Excel）
-        "fa-regular fa-file-powerpoint": "#d24726", // dark orange（PPT）
-        "fa-regular fa-file":"#808080", // gray（default）
-    };
+    const {
+        rootFolderId,
+        setRootFolderId,
+        navigationPath,
+        setNavigationPath,
+        handleFolderClick,
+        handleBackward,
+        handlePathClick
+    } = useFileNavigation(
+        localStorage.getItem('rootFolderId'),
+        'root'
+    );
 
-    const handleFolderClick = (folderId, folderName) => {
-        setRootFolderId(folderId);
-        setNavigationPath(prev => [...prev, { id: folderId, name: folderName }]);
-    };
+    const fetchDeletedFoldersAndFiles = useCallback(async () => {
+        if (!userId) return;
 
-    const handleFileClick = (fileId) => {
-        navigate(`/editor/${fileId}`);
-    };
+        try {
+            const data = await getDeletedFilesAndFolders(rootFolderId, userId);
+            setFiles(data.files);
+            setFolders(data.folders);
+        } catch (error) {
+            console.error('Error fetching deleted data:', error);
 
-    const handleBackward = () => {
-        if (navigationPath.length > 1) {
-            const newPath = navigationPath.slice(0, -1);
-            setNavigationPath(newPath);
-            setRootFolderId(newPath[newPath.length - 1].id);
+            if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+                navigate('/login', { replace: true });
+            }
         }
-    };
+    }, [userId, rootFolderId, navigate]);
 
-    const handlePathClick = (index) => {
-        const newPath = navigationPath.slice(0, index + 1);
-        setNavigationPath(newPath);
-        setRootFolderId(newPath[newPath.length - 1].id);
-    };
+    useEffect(() => {
+        if (userId) {
+            fetchDeletedFoldersAndFiles();
+        }
+    }, [rootFolderId, userId, fetchDeletedFoldersAndFiles]);
 
-    // Function to prevent event propagation to parent
     const handleOperationClick = (e) => {
         e.stopPropagation();
     };
 
+    if (!userId) {
+        return null;
+    }
+
     return (
         <div className="container">
-            <header>
-                <img src={driveIcon} alt="drive-icon" className="drive-icon"/>
-                <div className="search-bar">
-                    <label className="search-bar">
-                        <input className="search-box" placeholder="search in the drive" size="50"/>`
-                    </label>
-                </div>
-            </header>
+            <Header showAddNew={false} />
 
             <div className="home-main-content">
                 <nav>
-                    <Sidebar></Sidebar>
+                    <Sidebar />
                 </nav>
 
                 <div className="main-content">
-                    <div className="first-row">
-                        <div className="folder-path">
-                            <i
-                                className="fa-solid fa-backward"
-                                style={{
-                                    color: "#616365",
-                                    cursor: navigationPath.length > 1 ? 'pointer' : 'not-allowed',
-                                    opacity: navigationPath.length > 1 ? 1 : 0.5,
-                                    marginRight:'20px'
-                                }}
-                                onClick={handleBackward}
-                            ></i>
-                            <div className="folder-path">
-                                {navigationPath.map((folder, index) => (
-                                    <span key={folder.id}>
-                                        <span
-                                            onClick={() => handlePathClick(index)}
-                                            style={{ cursor: 'pointer', color: '#3d3e40' }}
-                                        >
-                                            {folder.name}
-                                        </span>
-                                        {index < navigationPath.length - 1 && <span style={{ margin: '0 8px' }}>&gt;</span>}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
+                    <FolderPath
+                        navigationPath={navigationPath}
+                        onBackward={handleBackward}
+                        onPathClick={handlePathClick}
+                    />
 
-                    </div>
                     <div className="file-list">
                         <table className="file-table">
                             <thead>
                             <tr className="file-header">
-                                <th>Name    <i className="fa-solid fa-sort"></i></th>
-                                <th>DeletedAt    <i className="fa-solid fa-sort"></i></th>
+                                <th>Name <i className="fa-solid fa-sort"></i></th>
+                                <th>Deleted At <i className="fa-solid fa-sort"></i></th>
                                 <th>Size</th>
                                 <th> </th>
                             </tr>
                             </thead>
                             <tbody>
                             {folders.map(folder => (
-                                <tr key={`folder-${folder.id}`} className="file-data" onClick={() => handleFolderClick(folder.id, folder.name)}>
-                                    <td><i className="fa-solid fa-folder" style={{color: "#ffd129"}}></i> {folder.name}
-                                    </td>
-                                    <td>{folder.updatedAt}</td>
-                                    <td></td>
-                                    <td onClick={handleOperationClick}>
-                                        <OperateSpecificDeletedFolder folder={folder} userId={actualUserId}/>
-                                    </td>
-                                </tr>
+                                <FolderRow
+                                    key={folder.id}
+                                    folder={folder}
+                                    onClick={handleFolderClick}
+                                    renderActions={(folder, userId) => (
+                                        <div onClick={handleOperationClick}>
+                                            <OperateSpecificDeletedFolder
+                                                folder={folder}
+                                                userId={userId}
+                                            />
+                                        </div>
+                                    )}
+                                    userId={userId}
+                                />
                             ))}
                             {files
                                 .filter(file => String(file.folderId) === String(rootFolderId))
                                 .map(file => (
-                                <tr key={`file-${file.id}`} className="file-data" onClick={() => handleFileClick(file.id)}>
-                                    <td><i className={getFileIcon(file.mimeType)} style={{color: fileIcons[getFileIcon(file.mimeType)]}}></i> {file.name}</td>
-                                    <td>{file.updatedAt}</td>
-                                    <td>{file.size ? formatFileSize(file.size) : '-'}</td>
-                                    <td onClick={handleOperationClick}>
-                                        <OperateSpecificDeletedFile file={file} userId={actualUserId}/>
-                                    </td>
-                                </tr>
-                            ))}
+                                    <FileRow
+                                        key={file.id}
+                                        file={file}
+                                        renderActions={(file, userId) => (
+                                            <div onClick={handleOperationClick}>
+                                                <OperateSpecificDeletedFile
+                                                    file={file}
+                                                    userId={userId}
+                                                />
+                                            </div>
+                                        )}
+                                        userId={userId}
+                                    />
+                                ))}
                             </tbody>
                         </table>
                         {files.length === 0 && folders.length === 0 && (
