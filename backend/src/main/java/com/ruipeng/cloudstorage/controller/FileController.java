@@ -1,903 +1,386 @@
 package com.ruipeng.cloudstorage.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ruipeng.cloudstorage.config.file.FileStorageConfig;
-import com.ruipeng.cloudstorage.entity.*;
+import com.ruipeng.cloudstorage.dto.DownloadFileInfo;
 import com.ruipeng.cloudstorage.entity.File;
-import com.ruipeng.cloudstorage.entity.FilePermission;
-import com.ruipeng.cloudstorage.mappers.FileMapper;
-import com.ruipeng.cloudstorage.mappers.FilePermissionMapper;
-import com.ruipeng.cloudstorage.mappers.FileVersionMapper;
-import com.ruipeng.cloudstorage.service.*;
-import org.apache.poi.poifs.filesystem.OfficeXmlFileException;
-import org.apache.poi.poifs.filesystem.POIFSFileSystem;
-import org.apache.tika.Tika;
-import org.docx4j.convert.out.html.HtmlExporterNG2;
-import org.docx4j.fonts.IdentityPlusMapper;
-import org.docx4j.fonts.Mapper;
-import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
-import org.apache.poi.hwpf.HWPFDocument;
-import org.apache.poi.hwpf.converter.WordToHtmlConverter;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.docx4j.Docx4J;
-import org.docx4j.convert.in.xhtml.XHTMLImporterImpl;
-import org.docx4j.convert.out.HTMLSettings;
-import org.docx4j.openpackaging.parts.WordprocessingML.MainDocumentPart;
+import com.ruipeng.cloudstorage.service.FileS3Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import java.io.*;
-
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.sql.SQLException;
-import java.time.Instant;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import static org.zwobble.mammoth.internal.conversion.DocumentToHtml.convertToHtml;
-
+/**
+ * Controller for file operations.
+ * Handles file CRUD, upload, download, and deletion.
+ *
+ * All business logic is delegated to FileService.
+ */
 @RestController
 public class FileController {
-    private final FilePermissionMapper filePermission;
-    private final User user;
-    private final FileVersionMapper fileVersionMapper;
+    private static final Logger log = LoggerFactory.getLogger(FileController.class);
+
     private final FileS3Service fileService;
-    private final FileMapper fileMapper;
-    private File file;
-    private FileStorageConfig storage;
-    private final FolderService folderService;
-    private final S3StorageService s3StorageService;
 
-
-
-    public FileController(FileS3Service fileService, File file ,
-                          FileStorageConfig storage, FilePermissionMapper filePermission,
-                          User user, FileVersionMapper fileVersionMapper,
-                          FolderService folderService, FileMapper fileMapper,
-                          S3StorageService s3StorageService) {
+    /**
+     * Constructor with dependency injection.
+     *
+     * @param fileService the file service
+     */
+    public FileController(FileS3Service fileService) {
         this.fileService = fileService;
-        this.file = file;
-        this.storage = storage;
-        this.filePermission = filePermission;
-        this.user = user;
-        this.fileVersionMapper = fileVersionMapper;
-        this.folderService = folderService;
-        this.fileMapper = fileMapper;
-        this.s3StorageService = s3StorageService;
     }
+
+    /**
+     * Gets all files in the root folder for a user.
+     *
+     * @param ownerId the owner user ID
+     * @return list of files in root folder
+     */
     @GetMapping("/getRootFiles")
-    public List<File> getRootFiles(@RequestParam Long ownerId) throws SQLException {
-        Long rootFolderId = folderService.getRootFolderId(ownerId);
-        return fileService.getFiles( ownerId,rootFolderId);
+    public List<File> getRootFiles(@RequestParam Long ownerId) {
+        logGetRootFiles(ownerId);
+        return fileService.getRootFiles(ownerId);
     }
-    @GetMapping("/convertDocxToHtml")
-    public ResponseEntity<?> convertDocxToHtml(
-            @RequestParam("ownerId") long ownerId,
-            @RequestParam("fileId") long fileId) {
+
+    /**
+     * Gets all files in a specific folder.
+     *
+     * @param folderId the folder ID
+     * @param ownerId the owner user ID
+     * @return list of files in the folder
+     */
+    @GetMapping("/getAllFiles")
+    public ResponseEntity<List<File>> getAllFiles(
+            @RequestParam long folderId,
+            @RequestParam long ownerId) {
+        logGetAllFiles(folderId, ownerId);
+
+        Long actualFolderId = normalizeFolderId(folderId);
+        List<File> files = fileService.getFilesByFolder(ownerId, actualFolderId);
+
+        return ResponseEntity.ok().body(files);
+    }
+
+    /**
+     * Gets file details by file ID and owner ID.
+     *
+     * @param ownerId the owner user ID
+     * @param fileId the file ID
+     * @return file details or file content
+     */
+    @GetMapping("/getFileByUserIdAndFileId")
+    public ResponseEntity<?> getFileByUserIdAndFileId(
+            @RequestParam long ownerId,
+            @RequestParam long fileId) {
+        logGetFileDetails(fileId, ownerId);
+
         try {
-            // 验证文件存在性和权限
-            File existingFile = fileMapper.getFileById(fileId);
-            if (existingFile == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("File does not exist");
+            Map<String, Object> response = fileService.getFileDetailsAsMap(fileId, ownerId);
+
+            if (isWordDocument(response)) {
+                return buildJsonResponse(response);
             }
 
-            FilePermission permission = filePermission.findByFileIdAndUserId(fileId, ownerId);
-            if (permission == null) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No permission to access this file");
+            if (isTextFile(response)) {
+                return buildJsonResponse(response);
             }
 
-            // 获取最新版本的存储路径
-            FileVersion latestVersion = fileVersionMapper.getLatestVersion(fileId);
-            String storagePath = latestVersion.getStoragePath();
+            return buildBinaryResponse(response);
 
-            // 从S3下载DOCX文件
-            byte[] docxBytes = s3StorageService.downloadFile(storagePath);
-
-            // 使用Mammoth库转换DOCX为HTML
-            String htmlContent = convertDocxToHtmlUsingMammoth(docxBytes);
-
-            // 创建响应
-            Map<String, Object> response = new HashMap<>();
-            response.put("htmlContent", htmlContent);
-            response.put("fileName", existingFile.getName());
-            response.put("mimeType", existingFile.getMimeType());
-            response.put("fileId", fileId);
-
-            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to convert DOCX to HTML: " + e.getMessage());
+            log.error("Error getting file details: fileId={}, ownerId={}", fileId, ownerId, e);
+            return buildErrorResponse(e.getMessage());
         }
     }
 
-    private String convertDocxToHtmlContent(byte[] docxInputStream) throws Exception {
-        // 使用docx4j库转换DOCX为HTML
-        WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage.load(convertBytesToDocxFile(docxInputStream));
+    /**
+     * Uploads a new file.
+     *
+     * @param file the file to upload
+     * @param ownerId the owner user ID
+     * @param folderId the target folder ID
+     * @return the uploaded file details
+     */
+    @PostMapping("/upload")
+    public ResponseEntity<File> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("userId") long ownerId,
+            @RequestParam("folderId") long folderId) throws IOException {
+        logUploadFile(file.getOriginalFilename(), folderId);
 
-        // 设置字体映射器来处理缺失字体问题
-        IdentityPlusMapper fontMapper = new IdentityPlusMapper();
-        wordMLPackage.setFontMapper(fontMapper);
+        Long actualFolderId = normalizeFolderId(folderId);
+        File uploadedFile = fileService.uploadFile(file, ownerId, actualFolderId);
 
-        // 配置HTML输出选项
-        HTMLSettings htmlSettings = Docx4J.createHTMLSettings();
-        htmlSettings.setWmlPackage(wordMLPackage);
-        htmlSettings.setImageDirPath(null); // 不保存图片
-        htmlSettings.setImageTargetUri(null);
-
-        // 禁用CSS处理以便更好地与Quill兼容
-            htmlSettings.setUserCSS(String.valueOf(false));
-
-        // 设置输出方法
-        htmlSettings.setOpcPackage(wordMLPackage);
-
-        // 简化HTML输出并提高与Quill的兼容性
-        ByteArrayOutputStream htmlOutputStream = new ByteArrayOutputStream();
-
-        // 使用FLAG_EXPORT_PREFER_NONXSLT可能会减少问题
-        Docx4J.toHTML(htmlSettings, htmlOutputStream, Docx4J.FLAG_EXPORT_PREFER_NONXSL);
-
-
-        // 获取HTML内容
-        String htmlContent = htmlOutputStream.toString("UTF-8");
-
-        // 清理HTML，只保留body内容以便与Quill兼容
-        htmlContent = extractBodyContent(htmlContent);
-
-        // 执行额外的HTML清理
-        htmlContent = cleanHtmlForQuill(htmlContent);
-
-        return htmlContent;
+        return ResponseEntity.ok().body(uploadedFile);
     }
 
-    // 提取body内容，确保只获取有用的部分
-    private String extractBodyContent(String htmlContent) {
-        // 先尝试提取<body>标签内的内容
-        Pattern bodyPattern = Pattern.compile("<body[^>]*>(.*?)</body>", Pattern.DOTALL);
-        Matcher bodyMatcher = bodyPattern.matcher(htmlContent);
-        if (bodyMatcher.find()) {
-            return bodyMatcher.group(1);
-        }
-
-        // 如果没有body标签，返回原始内容
-        return htmlContent;
-    }
-
-    // 清理HTML内容使其适合Quill编辑器
-    private String cleanHtmlForQuill(String htmlContent) {
-        // 移除docx4j生成的不需要的样式和脚本
-        htmlContent = htmlContent.replaceAll("<style[^>]*>.*?</style>", "");
-        htmlContent = htmlContent.replaceAll("<script[^>]*>.*?</script>", "");
-
-        // 移除Word特有的XML命名空间属性
-        htmlContent = htmlContent.replaceAll(" xmlns:w=\"[^\"]*\"", "");
-        htmlContent = htmlContent.replaceAll(" xmlns:o=\"[^\"]*\"", "");
-
-        // 简化样式属性，移除复杂的样式定义
-        htmlContent = htmlContent.replaceAll(" style=\"[^\"]*\"", "");
-        htmlContent = htmlContent.replaceAll(" class=\"[^\"]*\"", "");
-
-        // 处理HTML实体
-        htmlContent = htmlContent.replace("&nbsp;", " ")
-                .replace("&lt;", "<")
-                .replace("&gt;", ">")
-                .replace("&amp;", "&")
-                .replace("&apos;", "'")
-                .replace("&quot;", "\"");
-
-        // 处理特殊Unicode字符
-        htmlContent = htmlContent.replace("\u2018", "'")
-                .replace("\u2019", "'")
-                .replace("\u201C", "\"")
-                .replace("\u201D", "\"")
-                .replace("\u2013", "-")
-                .replace("\u2014", "--");
-
-        // 确保标签正确闭合
-        htmlContent = htmlContent.replaceAll("<br\\s*>", "<br/>");
-        htmlContent = htmlContent.replaceAll("<hr\\s*>", "<hr/>");
-        htmlContent = htmlContent.replaceAll("<img([^>]*)>", "<img$1/>");
-
-        // 移除空段落和多余的换行
-        htmlContent = htmlContent.replaceAll("<p>\\s*</p>", "");
-        htmlContent = htmlContent.replaceAll("\\n\\s*\\n", "\n");
-
-        // 移除Word特有的注释标记
-        htmlContent = htmlContent.replaceAll("<!--\\[if.*?\\]>.*?<!\\[endif\\]-->", "");
-
-        return htmlContent;
-    }
-    public java.io.File convertBytesToDocxFile(byte[] docxBytes) throws IOException {
-        // Create a temporary file with the .docx extension
-       java.io.File docxFile = java.io.File.createTempFile("document_", ".docx");
-        docxFile.deleteOnExit(); // This will delete the file when the JVM exits
-
-        // Write the bytes to the file
-        try (FileOutputStream fos = new FileOutputStream(docxFile)) {
-            fos.write(docxBytes);
-            fos.flush();
-        }
-
-        return docxFile;
-    }
-
-
-    @PostMapping("/convertHtmlToDocx")
-    public ResponseEntity<?> convertHtmlToDocx(@RequestBody Map<String, String> requestBody) {
-        try {
-            String htmlContent = requestBody.get("htmlContent");
-            String fileName = requestBody.get("fileName");
-            long ownerId = Long.parseLong(requestBody.get("ownerId"));
-            long fileId = Long.parseLong(requestBody.get("fileId"));
-
-            if (htmlContent == null || fileName == null) {
-                return ResponseEntity.badRequest().body("HTML content and file name are required");
-            }
-
-            // 1. Validate file exists and check permissions
-            File existingFile = fileMapper.getFileById(fileId);
-            if (existingFile == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("File does not exist");
-            }
-
-            FilePermission permission = filePermission.findByFileIdAndUserId(fileId, ownerId);
-            if (permission == null || permission.getPermission() != PermissionType.ADMIN) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No permission to update this file");
-            }
-
-            // 2. Create Word document with better formatting preservation
-            WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage.createPackage();
-            MainDocumentPart mainDocumentPart = wordMLPackage.getMainDocumentPart();
-
-            //Improved font mapping for better text appearance
-           Mapper fontMapper = new IdentityPlusMapper();
-            wordMLPackage.setFontMapper(fontMapper);
-
-            // Clean and format HTML
-            String cleanedHtml = "<html><head><meta charset=\"UTF-8\"/></head><body>" + htmlContent.replace("&nbsp;", "&#160;")
-                    .replace("&amp;", "&#38;")
-                    .replace("&lt;", "&#60;")
-                    .replace("&gt;", "&#62;")
-                    .replace("<br>", "<br/>") + "</body></html>";
-
-            // Configure XHTML importer with improved image handling
-            XHTMLImporterImpl xhtmlImporter = new XHTMLImporterImpl(wordMLPackage);
-            xhtmlImporter.setHyperlinkStyle("Hyperlink");
-
-            // Convert HTML to DOCX content with improved formatting preservation
-            mainDocumentPart.getContent().addAll(xhtmlImporter.convert(cleanedHtml, null));
-
-            // Save document to byte array
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            Docx4J.save(wordMLPackage, outputStream, Docx4J.FLAG_SAVE_ZIP_FILE);
-            byte[] docxBytes = outputStream.toByteArray();
-
-            // 3. 获取最新版本号并递增
-            int currentVersionNumber = fileVersionMapper.getLatestVersionNumber(fileId);
-            int newVersionNumber = currentVersionNumber + 1;
-
-            // 4. 获取最近版本的存储路径
-            FileVersion latestVersion = fileVersionMapper.getLatestVersion(fileId);
-            String previousPath = latestVersion.getStoragePath();
-
-            // 5. 生成新的S3密钥，替换版本号部分
-            String extension = ".docx";
-            String s3Key;
-            if (previousPath.contains("_v")) {
-                s3Key = previousPath.replaceAll("_v\\d+\\.", "_v" + newVersionNumber + ".");
-            } else {
-                // 如果路径中没有版本模式，则创建一个新的
-                String basePath = previousPath.substring(0, previousPath.lastIndexOf('.'));
-                s3Key = basePath + "_v" + newVersionNumber + extension;
-            }
-
-            MultipartFile multipartFile = new MockMultipartFile(
-                    fileName,                // 文件名
-                    file.getName(),        // 原始文件名
-                    file.getMimeType(),             // 内容类型，如 "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    new FileInputStream(convertBytesToDocxFile(docxBytes))  // 文件内容
-            );
-            // 6. 上传文件到S3
-            s3StorageService.uploadFile( multipartFile, s3Key);
-
-            // 7. 插入新的文件版本记录
-            FileVersion version = new FileVersion();
-            version.setFileId(fileId);
-            version.setVersionNumber(newVersionNumber);
-            version.setStoragePath(s3Key);
-            version.setSize((long) docxBytes.length);
-            version.setCreatedBy(ownerId);
-            version.setCreatedAt(Instant.now());
-            fileVersionMapper.insertVersion(version);
-
-            // 8. 更新文件元数据
-            existingFile.setMimeType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-            existingFile.setSize((long) docxBytes.length);
-            existingFile.setUpdatedAt(Instant.now());
-            if (!fileName.endsWith(".docx")) {
-                existingFile.setName(fileName + ".docx");
-            } else {
-                existingFile.setName(fileName);
-            }
-            fileMapper.updateFile(existingFile);
-
-            // 9. 创建带有文件详细信息的响应
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Word document created successfully");
-            response.put("fileName", existingFile.getName());
-            response.put("mimeType", existingFile.getMimeType());
-            response.put("fileId", fileId);
-            response.put("versionId", version.getId());
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to convert HTML to DOCX: " + e.getMessage());
-        }
-    }
-
-    @GetMapping("/convertDocxToHtmlMammoth")
-    public ResponseEntity<?> convertDocxToHtmlMammoth(
-            @RequestParam("ownerId") long ownerId,
-            @RequestParam("fileId") long fileId) {
-        try {
-            // 验证文件存在性和权限
-            File existingFile = fileMapper.getFileById(fileId);
-            if (existingFile == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("File does not exist");
-            }
-
-            FilePermission permission = filePermission.findByFileIdAndUserId(fileId, ownerId);
-            if (permission == null) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No permission to access this file");
-            }
-
-            // 获取最新版本的存储路径
-            FileVersion latestVersion = fileVersionMapper.getLatestVersion(fileId);
-            String storagePath = latestVersion.getStoragePath();
-            boolean isDocFormat = existingFile.getName().toLowerCase().endsWith(".doc") ||
-                    storagePath.toLowerCase().endsWith(".doc");
-
-            System.out.println("基于文件名判断格式: " + (isDocFormat ? ".doc" : ".docx"));
-            System.out.println("文件名: " + existingFile.getName());
-            System.out.println("存储路径: " + storagePath);
-
-            // 从S3下载DOCX文件
-            byte[] docBytes = s3StorageService.downloadFile(storagePath);
-            String htmlContent=null;
-
-            Map<String, Object> response = new HashMap<>();
-
-            if (docBytes[0] == (byte)0x50 && docBytes[1] == (byte)0x4B &&
-                    docBytes[2] == (byte)0x03 && docBytes[3] == (byte)0x04&&isDocFormat){
-                htmlContent=extractContentFromDocxBytes(docBytes);
-                response.put("fakeDocx", file.getName());
-
-            }else {
-                htmlContent =convertDocxToHtmlUsingMammoth(docBytes);
-            }
-
-
-            // 创建响应
-
-            response.put("htmlContent", htmlContent);
-            response.put("fileName", existingFile.getName());
-            response.put("mimeType", existingFile.getMimeType());
-            response.put("fileId", fileId);
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            e.printStackTrace();
-
-            // 在异常情况下也返回可用的响应
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("htmlContent", "<p>处理文档时出错: " + e.getMessage() + "</p>");
-            errorResponse.put("error", true);
-
-            return ResponseEntity.status(HttpStatus.OK).body(errorResponse);
-        }
-    }
-
-    private String convertDocxToHtmlUsingMammoth(byte[] docBytes) throws Exception {
-        // 检查文件完整性
-        boolean isValidFile = false;
-        boolean isDocFile = false;
-
-        // 打印文件大小和前几个字节，帮助调试
-        System.out.println("文件大小: " + docBytes.length + " 字节");
-        if (docBytes.length > 16) {
-            System.out.println("文件头16字节: " + bytesToHex(docBytes, 0, 16));
-        }
-
-        // 尝试检测文件类型
-        if (docBytes.length > 4) {
-            // 检查是否为DOC (OLE2)
-            if (docBytes[0] == (byte)0xD0 && docBytes[1] == (byte)0xCF &&
-                    docBytes[2] == (byte)0x11 && docBytes[3] == (byte)0xE0) {
-                isDocFile = true;
-                isValidFile = true;
-                System.out.println("检测到有效的DOC文件格式（OLE2格式）");
-            }
-            // 检查是否为DOCX (ZIP)
-            else if (docBytes[0] == (byte)0x50 && docBytes[1] == (byte)0x4B &&
-                    docBytes[2] == (byte)0x03 && docBytes[3] == (byte)0x04) {
-                isValidFile = true;
-                System.out.println("检测到有效的DOCX文件格式（ZIP格式）");
-            }
-        }
-
-        if (!isValidFile) {
-            System.out.println("检测到无效或损坏的文件格式");
-
-            // 作为最后的手段，尝试使用Apache Tika提取文本
-            try {
-                return extractTextWithTika(docBytes);
-            } catch (Exception e) {
-                System.err.println("Tika提取也失败: " + e.getMessage());
-
-                // 返回简单消息，而不是抛出异常
-                return "<p>文件内容无法读取或已损坏。请尝试重新上传正确格式的文件。</p>";
-            }
-        }
-        System.out.println(isDocFile);
-        if (isDocFile) {
-            // 处理DOC文件
-            try {
-                return convertDocToHtml(docBytes);
-            } catch (Exception e) {
-                System.err.println("处理.doc文件失败: " + e.getMessage());
-
-                // 尝试简单文本提取
-                try {
-                    return extractBasicTextFromDoc(docBytes);
-                } catch (Exception ex) {
-                    return "<p>无法处理DOC文件内容。文件可能已损坏。</p>";
-                }
-            }
-        } else {
-            // 处理DOCX文件
-            try {
-                // 直接使用字节流解析DOCX，避免写入文件系统
-                return extractContentFromDocxBytes(docBytes);
-            } catch (Exception e) {
-                System.err.println("Mammoth处理失败: " + e.getMessage());
-
-                // 尝试使用POI作为备选
-                try {
-                    return extractContentWithPOI(docBytes);
-                } catch (Exception ex) {
-                    System.err.println("POI处理也失败: " + ex.getMessage());
-                    return "<p>无法处理DOCX文件内容。文件可能已损坏。</p>";
-                }
-            }
-        }
-    }
-
-    // 使用POI直接提取DOCX文本内容
-    private String extractContentWithPOI(byte[] docxBytes) throws Exception {
-        StringBuilder html = new StringBuilder();
-
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(docxBytes);
-             XWPFDocument document = new XWPFDocument(bais)) {
-
-            for (XWPFParagraph paragraph : document.getParagraphs()) {
-                if (!paragraph.getText().trim().isEmpty()) {
-                    html.append("<p>").append(paragraph.getText()).append("</p>");
-                }
-            }
-        }
-
-        return html.toString();
-    }
-
-    // 从DOC提取基本文本
-    private String extractBasicTextFromDoc(byte[] docBytes) throws Exception {
-        StringBuilder html = new StringBuilder();
-
-        try (POIFSFileSystem fs = new POIFSFileSystem(new ByteArrayInputStream(docBytes));
-             HWPFDocument doc = new HWPFDocument(fs)) {
-
-            String text = doc.getDocumentText();
-            String[] paragraphs = text.split("\n");
-
-            for (String paragraph : paragraphs) {
-                if (!paragraph.trim().isEmpty()) {
-                    html.append("<p>").append(paragraph.trim()).append("</p>");
-                }
-            }
-        }
-
-        return html.toString();
-    }
-
-    // 使用ZipInputStream直接从字节流解析DOCX
-    private String extractContentFromDocxBytes(byte[] docxBytes) throws Exception {
-        // 先尝试Mammoth的方式
-        java.io.File tempFile = java.io.File.createTempFile("temp_", ".docx");
-        try {
-            // 写入临时文件
-            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-                fos.write(docxBytes);
-            }
-
-            // 使用Mammoth读取
-            org.zwobble.mammoth.DocumentConverter converter = new org.zwobble.mammoth.DocumentConverter();
-            return converter.convertToHtml(tempFile).getValue();
-        } finally {
-            // 删除临时文件
-            if (tempFile.exists()) {
-                tempFile.delete();
-            }
-        }
-    }
-
-    // 使用Apache Tika提取文本（需要添加Tika依赖）
-    private String extractTextWithTika(byte[] docBytes) throws Exception {
-        Tika tika = new Tika();
-        try (InputStream stream = new ByteArrayInputStream(docBytes)) {
-            String content = tika.parseToString(stream);
-            return content;
-        } catch (Exception e) {
-            return "<p>文档解析失败: " + e.getMessage() + "</p>";
-        }
-    }
-
-    // 辅助方法：将字节数组转换为十六进制字符串
-    private String bytesToHex(byte[] bytes, int offset, int length) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = offset; i < offset + length && i < bytes.length; i++) {
-            sb.append(String.format("%02X ", bytes[i] & 0xFF));
-        }
-        return sb.toString();
-    }
-
-    private String convertDocToHtml(byte[] docBytes) throws Exception {
-        // 先尝试检测实际格式
-        boolean isDocxFormat = false;
-
-        // 通过文件头检测是否为DOCX (Office 2007+ XML)
-        if (docBytes.length > 4 &&
-                docBytes[0] == 0x50 && docBytes[1] == 0x4B &&
-                docBytes[2] == 0x03 && docBytes[3] == 0x04) {
-            isDocxFormat = true;
-        }
-
-        // 或者通过POI的异常来检测
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(docBytes);
-             POIFSFileSystem fs = new POIFSFileSystem(bais)) {
-            // 如果成功打开，则是OLE2格式的.doc
-            HWPFDocument doc = new HWPFDocument(fs);
-
-            // 处理真正的.doc文件
-            WordToHtmlConverter converter = new WordToHtmlConverter(
-                    DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument());
-            converter.processDocument(doc);
-
-            StringWriter writer = new StringWriter();
-            TransformerFactory.newInstance().newTransformer().transform(
-                    new DOMSource(converter.getDocument()),
-                    new StreamResult(writer));
-
-            String html = writer.toString();
-            String bodyContent = extractBodyContent(html);
-            String cleanedHtml = cleanHtmlForQuill(bodyContent);
-
-            System.out.println("使用POI HWPF处理.doc文件成功，HTML大小: " + cleanedHtml.length());
-            return cleanedHtml;
-        } catch (OfficeXmlFileException e) {
-            // 捕获到此异常说明是伪装成.doc的docx文件
-            System.out.println("检测到伪装成.doc的docx文件，使用XWPF处理");
-            isDocxFormat = true;
-        } catch (Exception e) {
-            System.err.println("处理.doc文件时发生错误: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-
-        // 处理实际上是DOCX的文件
-        if (isDocxFormat) {
-            try {
-                // 使用Mammoth处理DOCX
-                java.io.File tempFile = convertBytesToDocxFile(docBytes);
-                org.zwobble.mammoth.DocumentConverter converter = new org.zwobble.mammoth.DocumentConverter();
-                org.zwobble.mammoth.Result<String> result = converter.convertToHtml(tempFile);
-
-                System.out.println("使用Mammoth处理伪.doc文件成功，HTML大小: " + result.getValue().length());
-                return result.getValue();
-            } catch (Exception e) {
-                System.err.println("使用Mammoth处理伪.doc文件失败: " + e.getMessage());
-
-                // 如果Mammoth失败，尝试XWPF（Apache POI的DOCX处理器）
-                try (ByteArrayInputStream bais = new ByteArrayInputStream(docBytes);
-                     XWPFDocument document = new XWPFDocument(bais)) {
-
-                    StringBuilder html = new StringBuilder();
-                    for (XWPFParagraph paragraph : document.getParagraphs()) {
-                        html.append("<p>").append(paragraph.getText()).append("</p>");
-                    }
-
-                    System.out.println("使用XWPF处理伪.doc文件成功，HTML大小: " + html.length());
-                    return html.toString();
-                } catch (Exception ex) {
-                    System.err.println("使用XWPF处理伪.doc文件也失败: " + ex.getMessage());
-                    throw e; // 抛出原始异常
-                }
-            }
-        }
-
-        throw new RuntimeException("无法处理文档格式");
-    }
-
+    /**
+     * Uploads a new version of an existing file.
+     *
+     * @param file the new file version
+     * @param ownerId the owner user ID
+     * @param fileId the file ID
+     * @return response with upload result
+     */
     @PostMapping("/uploadNewFile")
     public ResponseEntity<?> uploadNewFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam("ownerId") long ownerId,
             @RequestParam("fileId") long fileId) {
+        logUploadNewVersion(fileId);
+
         try {
-            if (file.isEmpty()) {
-                return ResponseEntity.badRequest().body("Please select a file to upload");
-            }
-
-            // Call the file service to handle the upload
             File updatedFile = fileService.uploadNewVersion(file, ownerId, fileId);
-
-            // Create a response with success details and file info
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "File uploaded successfully");
-            response.put("fileId", updatedFile.getId());
-            response.put("fileName", updatedFile.getName());
-            response.put("mimeType", updatedFile.getMimeType());
-            response.put("size", updatedFile.getSize());
+            Map<String, Object> response = buildUploadSuccessResponse(updatedFile);
 
             return ResponseEntity.ok(response);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "message", "Failed to upload file: " + e.getMessage()));
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "message", "An unexpected error occurred: " + e.getMessage()));
+            log.error("Unexpected error uploading new version: fileId={}", fileId, e);
+            return buildUploadErrorResponse("An unexpected error occurred: " + e.getMessage());
         }
     }
 
-
-    @GetMapping("/getAllFiles")
-    public ResponseEntity<List<File>> getAllFiles(@RequestParam long folderId,@RequestParam long ownerId) {
-        if (folderId==-1){
-            folderId=0;
-        }
-        List<File> files = fileService.getFiles(ownerId,folderId);
-
-        return ResponseEntity.ok().body(files);
-    }
-
-
-
-    @GetMapping("/getFileByUserIdAndFileId")
-    public ResponseEntity<?> getFileByUserIdAndFileId(@RequestParam long ownerId, @RequestParam long fileId) {
-        try {
-            // Get the latest version of the file
-            FileVersion version = fileVersionMapper.getLatestVersion(fileId);
-            if (version == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("File version not found for fileId: " + fileId);
-            }
-
-            // Get file metadata
-            File file = fileMapper.getFileByUserIdAndFileId(ownerId, fileId);
-            if (file == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("File not found for ownerId: " + ownerId + ", fileId: " + fileId);
-            }
-
-            // Check if file exists in storage
-            String s3Key = version.getStoragePath();
-            if (!s3StorageService.doesFileExist(s3Key)) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("File not found in storage: " + s3Key);
-            }
-
-            // Download file content from S3
-            byte[] fileContent = s3StorageService.downloadFile(s3Key);
-            if (fileContent == null || fileContent.length == 0) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Empty file content for s3Key: " + s3Key);
-            }
-
-            // Determine content type and filename
-            String contentType = file.getMimeType() != null ? file.getMimeType() : "application/octet-stream";
-            String fileName = file.getName() != null ? file.getName() : s3Key.substring(s3Key.lastIndexOf('/') + 1);
-
-            // Handle Word documents (.doc, .docx) - ensure correct MIME type
-            if (s3Key.endsWith(".docx") && !contentType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) {
-                contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-            } else if (s3Key.endsWith(".doc") && !contentType.equals("application/msword")) {
-                contentType = "application/msword";
-            }
-
-            // Create response body for JSON responses
-            Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("fileName", fileName);
-            responseBody.put("mimeType", contentType);
-            responseBody.put("versionId", version.getId());
-            responseBody.put("size", fileContent.length);
-
-            // Handle different file types
-            if (contentType.startsWith("text/") || contentType.equals("application/json")) {
-                // Text files and JSON: Return content as string
-                String textContent = new String(fileContent, StandardCharsets.UTF_8);
-                if (contentType.equals("application/json")) {
-                    try {
-                        // Validate JSON
-                        new ObjectMapper().readTree(textContent);
-                    } catch (JsonProcessingException e) {
-                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body("Invalid JSON content: " + e.getMessage());
-                    }
-                }
-                responseBody.put("content", textContent);
-                return ResponseEntity.ok()
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(responseBody);
-            } else if (isWordDocument(contentType, s3Key)) {
-                // 添加word_document标记
-                responseBody.put("isWordDocument", true);
-
-                // 仅返回基本信息，不包含内容
-                return ResponseEntity.ok()
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(responseBody);
-            } else {
-                // Binary files (images, PDFs, etc.): Return as download
-                return ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(contentType))
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
-                        .body(fileContent);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error reading file from S3: " + e.getMessage());
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Unexpected error: " + e.getMessage());
-        }
-    }
-
-    // Helper method to check if the file is in OLE2 format (.doc)
-    private boolean isOle2Format(PushbackInputStream inputStream) throws IOException {
-        byte[] header = new byte[8];
-        int read = inputStream.read(header);
-        if (read >= 8) {
-            inputStream.unread(header);
-            // Check for OLE2 magic number (0xD0CF11E0)
-            return header[0] == (byte) 0xD0 && header[1] == (byte) 0xCF &&
-                    header[2] == (byte) 0x11 && header[3] == (byte) 0xE0;
-        }
-        inputStream.unread(header, 0, read);
-        return false;
-    }
-
-    // Helper method to determine if the file is a Word document
-    private boolean isWordDocument(String contentType, String s3Key) {
-        return contentType.equals("application/msword") ||
-                contentType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document") ||
-                s3Key.endsWith(".doc") || s3Key.endsWith(".docx");
-    }
-
-
-    @PostMapping("/upload")
-    public ResponseEntity<File> uploadFile(@RequestParam("file") MultipartFile uploadFile,@RequestParam("userId")long ownerId,@RequestParam("folderId")long folderId) throws IOException {
-        if (folderId==-1){
-            folderId=0;
-        }
-        File uploadedFile = fileService.uploadFile(uploadFile, ownerId, folderId);
-
-        return ResponseEntity.ok().body(uploadedFile);
-    }
-    @DeleteMapping("/deleteFile")
-    public ResponseEntity<?> deleteFile(@RequestParam long fileId,@RequestParam long userId) throws IOException {
-
-        int i = fileService.deleteFile(fileId, userId);
-        if (i>0){
-            return ResponseEntity.ok().build();
-        }
-
-        return ResponseEntity.badRequest().build();
-    }
-
-    @DeleteMapping("/softDeleteFile")
-    public ResponseEntity<?> softDeleteFile(@RequestParam long fileId,@RequestParam long userId) throws IOException {
-        int i = fileService.softDeleteFile(fileId, userId);
-        if (i>0){
-            return ResponseEntity.ok().build();
-        }
-        return ResponseEntity.badRequest().build();
-    }
-
-    @GetMapping("/getAllDeletedFiles")
-    public ResponseEntity<List<File>> getAllDeletedFiles(@RequestParam long ownerId,@RequestParam long folderId) {
-
-        if (folderId==-1){
-            folderId=0;
-        }
-        List<File> files = fileService.getAllDeletedFiles(ownerId,folderId);
-
-        return ResponseEntity.ok().body(files);
-    }
-
-    @PostMapping("/restoreFile")
-    public ResponseEntity<?>restoreFile(@RequestParam long fileId,@RequestParam long ownerId) {
-        int i = fileService.restoreFile(fileId, ownerId);
-
-        if (i>0){
-            return ResponseEntity.ok().build();
-        }
-        return ResponseEntity.badRequest().build();
-    }
-
-
-
-
-     @GetMapping("/download")
+    /**
+     * Downloads a file.
+     *
+     * @param fileId the file ID
+     * @return the file content as resource
+     */
+    @GetMapping("/download")
     public ResponseEntity<Resource> downloadFile(@RequestParam("fileId") Long fileId) {
+        logDownloadFile(fileId);
+
         try {
             DownloadFileInfo downloadInfo = fileService.downloadFile(fileId);
 
             return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(downloadInfo.getMimeType()))
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                    "attachment; filename=\"" + URLEncoder.encode(downloadInfo.getFileName(), "UTF-8") + "\"")
-                .body(downloadInfo.getResource());
+                    .contentType(MediaType.parseMediaType(downloadInfo.getMimeType()))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            createContentDisposition(downloadInfo.getFileName()))
+                    .body(downloadInfo.getResource());
         } catch (Exception e) {
+            log.error("Failed to download file: fileId={}", fileId, e);
             throw new RuntimeException("fail downloading file " + e.getMessage());
         }
     }
 
-    @PostMapping("/convert-doc")
-    public ResponseEntity<?> convertDoc(@RequestParam("file") MultipartFile file) {
-        try {
-            //  Apache POI
-            XWPFDocument document;
-            if (file.getOriginalFilename().endsWith(".docx")) {
-                document = new XWPFDocument(file.getInputStream());
-            } else {
-                HWPFDocument doc = new HWPFDocument(file.getInputStream());
-                return ResponseEntity.ok(doc.getDocumentText());
-            }
+    /**
+     * Soft deletes a file (moves to trash).
+     *
+     * @param fileId the file ID
+     * @param userId the user ID
+     * @return response indicating success or failure
+     */
+    @DeleteMapping("/softDeleteFile")
+    public ResponseEntity<?> softDeleteFile(
+            @RequestParam long fileId,
+            @RequestParam long userId) throws IOException {
+        logSoftDeleteFile(fileId);
 
+        int result = fileService.softDeleteFile(fileId, userId);
 
-            StringBuilder text = new StringBuilder();
-            for (XWPFParagraph paragraph : document.getParagraphs()) {
-                text.append(paragraph.getText()).append("\n");
-            }
-
-            return ResponseEntity.ok(text.toString());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("文档转换失败: " + e.getMessage());
+        if (result > 0) {
+            return ResponseEntity.ok().build();
         }
+        return ResponseEntity.badRequest().build();
     }
 
-}
+    /**
+     * Permanently deletes a file.
+     *
+     * @param fileId the file ID
+     * @param userId the user ID
+     * @return response indicating success or failure
+     */
+    @DeleteMapping("/deleteFile")
+    public ResponseEntity<?> deleteFile(
+            @RequestParam long fileId,
+            @RequestParam long userId) throws IOException {
+        logDeleteFile(fileId);
 
+        int result = fileService.deleteFile(fileId, userId);
+
+        if (result > 0) {
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.badRequest().build();
+    }
+
+    /**
+     * Gets all deleted files for a user.
+     *
+     * @param ownerId the owner user ID
+     * @param folderId the folder ID
+     * @return list of deleted files
+     */
+    @GetMapping("/getAllDeletedFiles")
+    public ResponseEntity<List<File>> getAllDeletedFiles(
+            @RequestParam long ownerId,
+            @RequestParam long folderId) {
+        logGetDeletedFiles(ownerId);
+
+        Long actualFolderId = normalizeFolderId(folderId);
+        List<File> files = fileService.getAllDeletedFiles(ownerId, actualFolderId);
+
+        return ResponseEntity.ok().body(files);
+    }
+
+    /**
+     * Restores a deleted file.
+     *
+     * @param fileId the file ID
+     * @param ownerId the owner user ID
+     * @return response indicating success or failure
+     */
+    @PostMapping("/restoreFile")
+    public ResponseEntity<?> restoreFile(
+            @RequestParam long fileId,
+            @RequestParam long ownerId) {
+        logRestoreFile(fileId);
+
+        int result = fileService.restoreFile(fileId, ownerId);
+
+        if (result > 0) {
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.badRequest().build();
+    }
+
+    // ============ Private Helper Methods ============
+
+    /**
+     * Normalizes folder ID, converting -1 to 0 for root folder.
+     */
+    private Long normalizeFolderId(long folderId) {
+        return folderId == -1 ? 0 : folderId;
+    }
+
+    /**
+     * Checks if response contains a Word document.
+     */
+    private boolean isWordDocument(Map<String, Object> response) {
+        Boolean isWord = (Boolean) response.get("isWordDocument");
+        return isWord != null && isWord;
+    }
+
+    /**
+     * Checks if response contains text content.
+     */
+    private boolean isTextFile(Map<String, Object> response) {
+        return response.containsKey("content") && response.get("content") != null;
+    }
+
+    /**
+     * Builds JSON response for metadata.
+     */
+    private ResponseEntity<?> buildJsonResponse(Map<String, Object> response) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(response);
+    }
+
+    /**
+     * Builds binary response for file download.
+     */
+    private ResponseEntity<?> buildBinaryResponse(Map<String, Object> response) {
+        String mimeType = (String) response.get("mimeType");
+        String fileName = (String) response.get("fileName");
+        byte[] content = (byte[]) response.get("binaryContent");
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(mimeType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .body(content);
+    }
+
+    /**
+     * Builds error response.
+     */
+    private ResponseEntity<?> buildErrorResponse(String errorMessage) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Unexpected error: " + errorMessage);
+    }
+
+    /**
+     * Builds upload success response.
+     */
+    private Map<String, Object> buildUploadSuccessResponse(File file) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "File uploaded successfully");
+        response.put("fileId", file.getId());
+        response.put("fileName", file.getName());
+        response.put("mimeType", file.getMimeType());
+        response.put("size", file.getSize());
+        return response;
+    }
+
+    /**
+     * Builds upload error response.
+     */
+    private ResponseEntity<?> buildUploadErrorResponse(String errorMessage) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "message", errorMessage));
+    }
+
+    /**
+     * Creates Content-Disposition header value.
+     */
+    private String createContentDisposition(String fileName) {
+        return "attachment; filename=\"" +
+                URLEncoder.encode(fileName, StandardCharsets.UTF_8) + "\"";
+    }
+
+    // ============ Logging Methods ============
+
+    private void logGetRootFiles(Long ownerId) {
+        log.info("Getting root files for owner: {}", ownerId);
+    }
+
+    private void logGetAllFiles(long folderId, long ownerId) {
+        log.info("Getting files for folder: {} owner: {}", folderId, ownerId);
+    }
+
+    private void logGetFileDetails(long fileId, long ownerId) {
+        log.info("Getting file details: fileId={}, ownerId={}", fileId, ownerId);
+    }
+
+    private void logUploadFile(String filename, long folderId) {
+        log.info("Uploading file: {} to folder: {}", filename, folderId);
+    }
+
+    private void logUploadNewVersion(long fileId) {
+        log.info("Uploading new version for file: {}", fileId);
+    }
+
+    private void logDownloadFile(Long fileId) {
+        log.info("Downloading file: {}", fileId);
+    }
+
+    private void logSoftDeleteFile(long fileId) {
+        log.info("Soft deleting file: {}", fileId);
+    }
+
+    private void logDeleteFile(long fileId) {
+        log.info("Permanently deleting file: {}", fileId);
+    }
+
+    private void logGetDeletedFiles(long ownerId) {
+        log.info("Getting deleted files for owner: {}", ownerId);
+    }
+
+    private void logRestoreFile(long fileId) {
+        log.info("Restoring file: {}", fileId);
+    }
+}

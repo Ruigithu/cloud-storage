@@ -1,4 +1,6 @@
-package com.ruipeng.cloudstorage.entity;
+package com.ruipeng.cloudstorage.dto.response;
+
+import com.ruipeng.cloudstorage.entity.PermissionType;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

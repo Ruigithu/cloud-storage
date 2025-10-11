@@ -1,4 +1,4 @@
-package com.ruipeng.cloudstorage.entity;
+package com.ruipeng.cloudstorage.dto;
 
 import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayInputStream;
@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 public class CustomMultipartFile implements MultipartFile {
     private final String name;

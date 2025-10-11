@@ -1,5 +1,6 @@
 package com.ruipeng.cloudstorage.service;
 
+import com.ruipeng.cloudstorage.dto.DownloadFileInfo;
 import com.ruipeng.cloudstorage.entity.*;
 import com.ruipeng.cloudstorage.mappers.FileMapper;
 import com.ruipeng.cloudstorage.mappers.FilePermissionMapper;

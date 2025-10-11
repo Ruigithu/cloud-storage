@@ -1,4 +1,4 @@
-package com.ruipeng.cloudstorage.entity;
+package com.ruipeng.cloudstorage.dto.request;
 
 
 import jakarta.validation.constraints.Email;

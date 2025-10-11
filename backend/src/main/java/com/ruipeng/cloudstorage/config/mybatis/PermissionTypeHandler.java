@@ -12,7 +12,7 @@ public class PermissionTypeHandler extends BaseTypeHandler<PermissionType> {
     @Override
     public void setNonNullParameter(PreparedStatement ps, int i, PermissionType parameter, JdbcType jdbcType)
             throws SQLException {
-        ps.setObject(i, parameter.name().toLowerCase(), Types.OTHER);  // 转换为小写
+        ps.setObject(i, parameter.name().toLowerCase(), Types.OTHER);
     }
 
     @Override

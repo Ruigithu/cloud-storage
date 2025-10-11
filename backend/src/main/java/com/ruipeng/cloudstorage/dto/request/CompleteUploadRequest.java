@@ -1,4 +1,6 @@
-package com.ruipeng.cloudstorage.entity;
+package com.ruipeng.cloudstorage.dto.request;
+
+import com.ruipeng.cloudstorage.dto.PartETagDto;
 
 import java.util.List;
 

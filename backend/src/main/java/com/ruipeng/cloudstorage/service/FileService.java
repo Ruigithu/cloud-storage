@@ -1,6 +1,6 @@
 package com.ruipeng.cloudstorage.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ruipeng.cloudstorage.dto.DownloadFileInfo;
 import com.ruipeng.cloudstorage.entity.*;
 import com.ruipeng.cloudstorage.mappers.FileMapper;
 import com.ruipeng.cloudstorage.mappers.FilePermissionMapper;
@@ -11,7 +11,6 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -29,7 +28,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -39,10 +37,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-
-import static org.aspectj.util.FileUtil.isZipFile;
 
 @Service
 public class FileService {
