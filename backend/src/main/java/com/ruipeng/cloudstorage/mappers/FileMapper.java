@@ -52,7 +52,7 @@ public interface FileMapper {
 
     @Insert("INSERT INTO files (name, mime_type, size, owner_id, folder_id, created_at, updated_at) " +
             "VALUES (#{name}, #{mimeType}, #{size}, #{ownerId}, #{folderId}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
-    @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")  // 确保 keyColumn 正确
+    @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     long insertFile(File file);
 
 

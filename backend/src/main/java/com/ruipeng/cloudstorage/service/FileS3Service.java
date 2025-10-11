@@ -104,7 +104,7 @@ public class FileS3Service {
         saveFile(newFile);
 
         String s3Key = uploadFileToStorage(file, newFile, folderId, ownerId, 1);
-        createFileVersion(newFile.getId(), s3Key, file.getSize(), ownerId, 1);
+        createFileVersion(newFile.getId(), s3Key, file.getSize(), ownerId, 1,fileVersionMapper);
         grantFilePermission(newFile.getId(), ownerId, folderId);
 
         log.info("File uploaded: id={}, name={}", newFile.getId(), newFile.getName());
@@ -123,7 +123,7 @@ public class FileS3Service {
         updateFileMetadata(existingFile, file);
 
         String s3Key = uploadNewVersionToStorage(file, existingFile, newVersionNumber);
-        createFileVersion(fileId, s3Key, file.getSize(), ownerId, newVersionNumber);
+        createFileVersion(fileId, s3Key, file.getSize(), ownerId, newVersionNumber,fileVersionMapper);
 
         log.info("New version uploaded: fileId={}, version={}", fileId, newVersionNumber);
         return existingFile;
@@ -228,8 +228,8 @@ public class FileS3Service {
     }
 
     private void createFileVersion(Long fileId, String storagePath,
-                                   Long size, Long createdBy, int versionNumber) {
-        DocumentConversionService.createNewFileVersion(fileId, storagePath, size, createdBy, versionNumber);
+                                   Long size, Long createdBy, int versionNumber,FileVersionMapper fileVersionMapper) {
+        DocumentConversionService.createNewFileVersion(fileId, storagePath, size, createdBy, versionNumber, fileVersionMapper);
     }
 
     private void grantFilePermission(Long fileId, Long userId, Long folderId) {

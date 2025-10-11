@@ -186,11 +186,10 @@ public class DocumentConversionService {
 
     private void saveFileVersion(Long fileId, String storagePath,
                                  Long size, Long createdBy, int versionNumber) {
-        FileVersion version = createNewFileVersion(fileId, storagePath, size, createdBy, versionNumber);
-        fileVersionMapper.insertVersion(version);
+        FileVersion version = createNewFileVersion(fileId, storagePath, size, createdBy, versionNumber,fileVersionMapper);
     }
 
-    static FileVersion createNewFileVersion(Long fileId, String storagePath, Long size, Long createdBy, int versionNumber) {
+    static FileVersion createNewFileVersion(Long fileId, String storagePath, Long size, Long createdBy, int versionNumber,FileVersionMapper fileVersionMapper) {
         FileVersion version = new FileVersion();
         version.setFileId(fileId);
         version.setVersionNumber(versionNumber);
@@ -198,6 +197,7 @@ public class DocumentConversionService {
         version.setSize(size);
         version.setCreatedBy(createdBy);
         version.setCreatedAt(Instant.now());
+        fileVersionMapper.insertVersion(version);
         return version;
     }
 
