@@ -152,8 +152,7 @@
             <artifactId>docx4j-export-fo</artifactId>
             <version>11.4.8</version>
         </dependency>
-        <!-- 不要使用 8.3.x 版本的 JAXB-Internal -->
-        <!-- 而应该使用 -->
+
         <dependency>
             <groupId>org.docx4j</groupId>
             <artifactId>docx4j-JAXB-ReferenceImpl</artifactId>
@@ -215,6 +214,29 @@
             <groupId>org.zwobble.mammoth</groupId>
             <artifactId>mammoth</artifactId>
             <version>1.4.2</version>
+        </dependency>
+
+        <!-- JUnit 5 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Mockito -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.5.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- AssertJ -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>3.24.2</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
