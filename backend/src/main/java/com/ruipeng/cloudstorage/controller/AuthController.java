@@ -4,6 +4,9 @@ import com.ruipeng.cloudstorage.dto.response.AuthResponse;
 import com.ruipeng.cloudstorage.dto.request.LoginRequest;
 import com.ruipeng.cloudstorage.dto.request.SignupRequest;
 import com.ruipeng.cloudstorage.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Authentication Management", description = "User Authentication Interface")
 public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
@@ -41,6 +45,9 @@ public class AuthController {
      * @return response with authentication token
      */
     @PostMapping("/login")
+    @Operation(summary = "use the credentials to login",
+            description = "Verify user credentials by email&password through AuthenticationManager," +
+                    "generate JWT token and set security context, return AuthResponse, including email and token")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
         logLoginAttempt(loginRequest.getEmail());
 
@@ -57,6 +64,9 @@ public class AuthController {
      * @return response confirming registration
      */
     @PostMapping("/signup")
+    @Operation(summary = "register new user",
+            description = "verify the user's email doesn't exist," +
+                    "create new User instance and save it to the database, return AuthResponse, including success message")
     public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest signupRequest) {
         logSignupAttempt(signupRequest.getEmail());
 

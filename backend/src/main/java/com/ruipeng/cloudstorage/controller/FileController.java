@@ -3,6 +3,9 @@ package com.ruipeng.cloudstorage.controller;
 import com.ruipeng.cloudstorage.dto.DownloadFileInfo;
 import com.ruipeng.cloudstorage.entity.File;
 import com.ruipeng.cloudstorage.service.FileS3Service;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
@@ -27,6 +30,7 @@ import java.util.Map;
  * All business logic is delegated to FileService.
  */
 @RestController
+@Tag(name = "File Management", description = "Operating file interface")
 public class FileController {
     private static final Logger log = LoggerFactory.getLogger(FileController.class);
 
@@ -48,6 +52,9 @@ public class FileController {
      * @return list of files in root folder
      */
     @GetMapping("/getRootFiles")
+    @Operation(summary = "get files in the root folder",
+            description = "get root folderId, search the files in root folder and return the list of these files")
+    @Parameter(name = "ownerId",description = "specified ownerId", required = true,example = "1")
     public List<File> getRootFiles(@RequestParam Long ownerId) {
         logGetRootFiles(ownerId);
         return fileService.getRootFiles(ownerId);
@@ -61,6 +68,7 @@ public class FileController {
      * @return list of files in the folder
      */
     @GetMapping("/getAllFiles")
+    @Operation(summary = "Get files from specified folder", description = "standardize the folderId, search the files in the folder and return the list of these files")
     public ResponseEntity<List<File>> getAllFiles(
             @RequestParam long folderId,
             @RequestParam long ownerId) {

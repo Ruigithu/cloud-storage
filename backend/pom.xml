@@ -120,19 +120,7 @@
             <version>1.12.595</version>
         </dependency>
 
-        <!-- XML 绑定 -->
-        <dependency>
-            <groupId>jakarta.xml.bind</groupId>
-            <artifactId>jakarta.xml.bind-api</artifactId>
-            <!-- 使用与 docx4j 11.5.2 兼容的版本，通常是 3.0.1 -->
-            <version>3.0.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish.jaxb</groupId>
-            <artifactId>jaxb-runtime</artifactId>
-            <!-- 相应的 runtime 版本 -->
-            <version>3.0.2</version>
-        </dependency>
+
 
         <!-- Word 相关（推荐统一使用 docx4j 处理 DOCX） -->
         <!-- https://mvnrepository.com/artifact/org.docx4j/docx4j-core -->
@@ -141,6 +129,12 @@
             <groupId>org.docx4j</groupId>
             <artifactId>docx4j-core</artifactId>
             <version>11.4.8</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-compress</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.docx4j</groupId>
@@ -158,23 +152,7 @@
             <artifactId>docx4j-JAXB-ReferenceImpl</artifactId>
             <version>11.4.8</version>
         </dependency>
-
-        <!-- Apache POI（用于 Excel/PPT/老旧 DOC 格式）-->
-        <dependency>
-            <groupId>org.apache.poi</groupId>
-            <artifactId>poi</artifactId>
-            <version>5.4.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.poi</groupId>
-            <artifactId>poi-ooxml</artifactId>
-            <version>5.4.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.poi</groupId>
-            <artifactId>poi-scratchpad</artifactId>
-            <version>5.4.0</version>
-        </dependency>
+        
 
         <!-- Mammoth（仅用于从 DOCX 提取纯文本） -->
         <dependency>
@@ -189,12 +167,6 @@
             <scope>compile</scope>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.docx4j/docx4j-JAXB-Internal -->
-        <dependency>
-            <groupId>org.docx4j</groupId>
-            <artifactId>docx4j-JAXB-Internal</artifactId>
-            <version>8.3.14</version>
-        </dependency>
 
         <!-- Tika核心库 -->
         <dependency>
@@ -210,11 +182,6 @@
             <version>2.9.1</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.zwobble.mammoth</groupId>
-            <artifactId>mammoth</artifactId>
-            <version>1.4.2</version>
-        </dependency>
 
         <!-- JUnit 5 -->
         <dependency>
@@ -237,6 +204,13 @@
             <artifactId>assertj-core</artifactId>
             <version>3.24.2</version>
             <scope>test</scope>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.springdoc/springdoc-openapi-starter-webmvc-ui -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.8.13</version>
         </dependency>
     </dependencies>
 
