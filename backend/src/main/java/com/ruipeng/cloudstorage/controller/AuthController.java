@@ -5,7 +5,6 @@ import com.ruipeng.cloudstorage.dto.request.LoginRequest;
 import com.ruipeng.cloudstorage.dto.request.SignupRequest;
 import com.ruipeng.cloudstorage.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
