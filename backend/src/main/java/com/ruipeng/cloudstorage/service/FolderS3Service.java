@@ -3,7 +3,6 @@ package com.ruipeng.cloudstorage.service;
 import com.amazonaws.services.s3.model.PartETag;
 import com.amazonaws.services.s3.model.PartSummary;
 import com.ruipeng.cloudstorage.dto.DownloadFileInfo;
-import com.ruipeng.cloudstorage.dto.response.FolderResponse;
 import com.ruipeng.cloudstorage.entity.*;
 import com.ruipeng.cloudstorage.exception.ResourceNotFoundException;
 import com.ruipeng.cloudstorage.mappers.FileMapper;
@@ -78,18 +77,6 @@ public class FolderS3Service {
         return folderHelperService.getRootFolderId(userId);
     }
 
-    /**
-     * Gets root folder information including subfolders.
-     */
-    public FolderResponse getRootFolderInfo(Long userId) {
-        Long rootFolderId = folderHelperService.getRootFolderId(userId);
-        List<Folder> folders = getFoldersByParent(userId, rootFolderId);
-
-        return FolderResponse.builder()
-                .rootFolderId(rootFolderId)
-                .folders(folders)
-                .build();
-    }
 
     /**
      * Gets all folders under a parent folder.
@@ -151,43 +138,7 @@ public class FolderS3Service {
     }
 
 
-    @Transactional
-    protected synchronized Long initializeRootFolder(Long userId) {
-        Folder rootFolder = folderMapper.findRootFolderByUserId(userId);
 
-        if (rootFolder == null) {
-            rootFolder = createRootFolder(userId);
-        }
-
-        return rootFolder.getId();
-    }
-
-    private Folder createRootFolder(Long userId) {
-        try {
-            Folder rootFolder = buildRootFolder(userId);
-            insertFolder(rootFolder);
-
-            Folder inserted = folderMapper.findRootFolderByUserId(userId);
-            updateRootFolderPath(inserted);
-            grantFolderPermission(inserted.getId(), userId);
-
-            return inserted;
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to create root folder", e);
-        }
-    }
-
-    private Folder buildRootFolder(Long userId) throws SQLException {
-        Folder folder = new Folder();
-        folder.setOwnerId(userId);
-        folder.setName("Root");
-        folder.setParentId(null);
-        folder.setPath(createTempPath());
-        folder.setCreatedAt(Instant.now());
-        folder.setUpdatedAt(Instant.now());
-        folder.setDeleted(false);
-        return folder;
-    }
 
     private Folder buildNewFolder(String name, Long parentId, Long userId) {
         Folder folder = new Folder();
@@ -228,17 +179,6 @@ public class FolderS3Service {
             folder.setPath(path);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to update folder path", e);
-        }
-    }
-
-    private void updateRootFolderPath(Folder rootFolder) {
-        try {
-            PGobject path = new PGobject();
-            path.setType("ltree");
-            path.setValue(rootFolder.getId().toString());
-            folderMapper.updatePath(rootFolder.getId(), path, Instant.now());
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to update root folder path", e);
         }
     }
 

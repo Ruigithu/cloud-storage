@@ -1,6 +1,5 @@
 package com.ruipeng.cloudstorage.mappers;
 
-import com.ruipeng.cloudstorage.entity.File;
 import com.ruipeng.cloudstorage.entity.Folder;
 import org.apache.ibatis.annotations.*;
 import org.postgresql.util.PGobject;
@@ -82,7 +81,7 @@ public interface FolderMapper {
 
 
     @Delete("DELETE FROM folders WHERE id=#{id}")
-    int deleteFolder(Long id);
+    void deleteFolder(Long id);
 
     @Select("SELECT * FROM folders WHERE owner_id = #{ownerId} AND parent_id=#{parentId} AND is_deleted = TRUE")
     @Results({
@@ -107,7 +106,7 @@ public interface FolderMapper {
     int updateFolder(Folder folder);
 
     @Update("UPDATE folders SET is_deleted = #{isDeleted}, updated_at = #{updatedAt} WHERE id = #{id}")
-    int updateFolderDeleteStatus(Folder folder);
+    void updateFolderDeleteStatus(Folder folder);
 
     @Select("select * from folders where id=#{folderId}")
     Folder getFolderByFolderId(Long folderId);

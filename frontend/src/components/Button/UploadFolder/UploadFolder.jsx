@@ -44,11 +44,9 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
             const completeResult = await response.json();
             console.log(`File with ID ${fileId} completed. Result:`, completeResult);
 
-            // 更新上传状态并移除已完成的文件
             const updatedUploads = activeUploads.filter(upload => upload.fileId !== fileId);
             setActiveUploads(updatedUploads);
 
-            // 更新已上传文件计数
             setUploadedFiles(prev => prev + 1);
 
             return completeResult;
@@ -251,13 +249,11 @@ function UploadFolder({ onFileUploadSuccess, userId, parentId }) {
                 }
             });
 
-            // 更新总体进度
             const overallProgress = files.length > 0 ? Math.round((totalProgress / files.length) * 100) : 0;
             setUploadProgress(overallProgress);
             setUploadedFiles(completedCount);
             setActiveUploads(updatedUploads);
 
-            // 如果所有文件都上传完成，结束上传过程
             if (completedCount === totalFiles && totalFiles > 0) {
                 await completeAllUploads();
             }

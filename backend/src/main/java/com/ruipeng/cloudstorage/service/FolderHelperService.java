@@ -40,7 +40,7 @@ public class FolderHelperService {
     }
 
     // ============ Private Helper Methods ============
-
+    //operate the database many times
     private Folder createRootFolder(Long userId) {
         try {
             Folder rootFolder = buildRootFolder(userId);

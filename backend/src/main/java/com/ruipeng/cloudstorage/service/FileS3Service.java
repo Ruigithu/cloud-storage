@@ -80,17 +80,6 @@ public class FileS3Service {
         return fileMapper.getFilesByUserIdAndFolderId(ownerId, folderId);
     }
 
-    /**
-     * Gets detailed information about a file.
-     */
-    public FileResponse getFileDetails(Long fileId, Long ownerId) {
-        File file = findFileById(fileId);
-        FileVersion latestVersion = getLatestVersion(fileId);
-
-        byte[] fileContent = downloadFileContent(latestVersion.getStoragePath());
-
-        return buildFileResponse(file, latestVersion, fileContent);
-    }
 
     /**
      * Uploads a new file.
