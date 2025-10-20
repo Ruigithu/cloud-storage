@@ -10,14 +10,11 @@ const OperateSpecificFile = ({file,userId}) => {
     const buttonRef = useRef(null);
 
 
-
-
     const handleButtonClick = (e) => {
         e.stopPropagation();
         console.log("Button clicked");
         setIsMenuVisible(!isMenuVisible);
     };
-
 
     const handleClickOutside = (e) => {
         if (menuRef.current &&
