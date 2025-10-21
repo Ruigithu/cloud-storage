@@ -15,6 +15,35 @@ export const useFolderUpload = ({ userId, parentId, onSuccess }) => {
     const cancelRef = useRef(false);
 
     /**
+     * 完成单个文件上传
+     */
+    const completeFileUpload = useCallback(
+        async (fileId, uploadId, partETags) => {
+            if (cancelRef.current) return;
+
+            // const payload = {
+            //     fileId,
+            //     uploadId,
+            //     partETags: partETags.map((part) => ({
+            //         partNumber: part.partNumber,
+            //         eTag: part.eTag,
+            //     })),
+            // };
+
+            try {
+                await uploadService.completeResumableUpload(fileId, uploadId, partETags);
+
+                // 更新状态
+                setActiveUploads((prev) => prev.filter((upload) => upload.fileId !== fileId));
+                setUploadedFiles((prev) => prev + 1);
+            } catch (error) {
+                console.error(`Error completing upload for file ${fileId}:`, error);
+                throw error;
+            }
+        },
+        []
+    );
+    /**
      * 上传单个文件的所有分片
      */
     const uploadFileParts = useCallback(
@@ -89,38 +118,9 @@ export const useFolderUpload = ({ userId, parentId, onSuccess }) => {
                 setRetryQueue((prev) => [...prev, { fileInfo, file }]);
             }
         },
-        []
+        [completeFileUpload]
     );
 
-    /**
-     * 完成单个文件上传
-     */
-    const completeFileUpload = useCallback(
-        async (fileId, uploadId, partETags) => {
-            if (cancelRef.current) return;
-
-            const payload = {
-                fileId,
-                uploadId,
-                partETags: partETags.map((part) => ({
-                    partNumber: part.partNumber,
-                    eTag: part.eTag,
-                })),
-            };
-
-            try {
-                await uploadService.completeResumableUpload(fileId, uploadId, partETags);
-
-                // 更新状态
-                setActiveUploads((prev) => prev.filter((upload) => upload.fileId !== fileId));
-                setUploadedFiles((prev) => prev + 1);
-            } catch (error) {
-                console.error(`Error completing upload for file ${fileId}:`, error);
-                throw error;
-            }
-        },
-        []
-    );
 
     /**
      * 完成所有上传

@@ -2,7 +2,6 @@ import { useState, useRef, useCallback } from 'react';
 import { useChunkUpload } from './useChunkUpload';
 import * as uploadService from '../services/uploadService';
 import { calculateProgress } from '../utils/uploadUtils';
-import { UPLOAD_STATUS } from '../utils/uploadHelper';
 
 export const useFileUpload = ({ ownerId, folderId, onSuccess }) => {
     const [isUploading, setIsUploading] = useState(false);
@@ -10,6 +9,7 @@ export const useFileUpload = ({ ownerId, folderId, onSuccess }) => {
     const [isPaused, setIsPaused] = useState(false);
     const [uploadId, setUploadId] = useState(null);
     const [fileId, setFileId] = useState(null);
+    // eslint-disable-next-line
     const [uploadedParts, setUploadedParts] = useState([]);
 
     const fileRef = useRef(null);

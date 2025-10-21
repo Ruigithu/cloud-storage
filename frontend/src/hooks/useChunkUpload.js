@@ -7,26 +7,6 @@ export const useChunkUpload = () => {
     const xhrRef = useRef(null);
     const isPausedRef = useRef(false);
 
-    /**
-     * 上传单个分片
-     * @param {Blob} chunk - 文件块
-     * @param {Function} uploadFn - 上传函数
-     * @param {Function} onProgress - 进度回调
-     * @returns {Promise} 包含 partNumber 和 eTag 的对象
-     */
-    const uploadChunk = useCallback(async (chunk, uploadFn, onProgress) => {
-        return new Promise((resolve, reject) => {
-            const xhr = uploadFn(chunk, (progress) => {
-                if (onProgress) {
-                    onProgress(progress);
-                }
-            });
-
-            xhrRef.current = xhr;
-
-            xhr.then(resolve).catch(reject);
-        });
-    }, []);
 
     /**
      * 上传所有分片
