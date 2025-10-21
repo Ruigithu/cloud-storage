@@ -19,9 +19,6 @@ const getAuthHeaders = () => ({
     Authorization: `Bearer ${getAuthToken()}`,
 });
 
-/**
- * ========== 单文件上传相关 API ==========
- */
 
 /**
  * 初始化断点续传

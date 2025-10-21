@@ -1,29 +1,22 @@
 # 工作流的名称
 name: Deploy Full-Stack Application to AWS
 
-# 触发条件：当代码被推送到 new-computer-develop 分支时触发
 on:
   push:
     branches: [ "new-computer-develop" ]
 
-# 环境变量，方便在多个步骤中复用
 env:
-  AWS_REGION: us-east-1  # 你的 AWS 区域，如果不同请修改
-  ECR_REPOSITORY_NAME: rui667_cloud-storage/backend # 你在 ECR 创建的仓库名
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY_NAME: rui667_cloud-storage/backend
 
 jobs:
-  # --- 前端部署任务 ---
   deploy-frontend:
-    # 运行环境
     runs-on: ubuntu-latest
 
-    # 任务步骤
     steps:
-      # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. 配置 AWS 凭证
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -31,27 +24,33 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # 3. 设置 Node.js 环境
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18' # 使用 Node.js 18 版本，如果你的项目需要其他版本请修改
+          node-version: '18'
 
-      # 4. 安装前端依赖
       - name: Install frontend dependencies
         run: npm install
-        working-directory: ./frontend # 指定在 frontend 目录下执行
+        working-directory: ./frontend
 
-      # 5. 构建前端项目
+      # 检查环境变量
+      - name: Check environment variables
+        run: |
+          echo "REACT_APP_API_URL is set: ${{ secrets.REACT_APP_API_URL != '' }}"
+          echo "URL (first 20 chars): $(echo '${{ secrets.REACT_APP_API_URL }}' | cut -c1-20)"
+
+      # 构建前端 - 关键步骤
       - name: Build frontend project
-        run: npm run build
-        working-directory: ./frontend # 指定在 frontend 目录下执行
+        env:
+          REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
+        run: |
+          echo "Building with API URL..."
+          npm run build
+        working-directory: ./frontend
 
-      # 6. 将构建好的文件同步到 S3
       - name: Deploy frontend to S3
         run: aws s3 sync ./frontend/build s3://${{ secrets.AWS_S3_BUCKET_NAME }} --delete
 
-      # 7. 使 CloudFront 缓存失效，以便用户能立刻看到最新版本
       - name: Invalidate CloudFront cache
         run: aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
 
