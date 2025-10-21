@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useFolderUpload } from '../../../hooks/useFolderUpload';
 import UploadProgress from '../../Progress/UploadProgress';

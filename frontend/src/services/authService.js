@@ -2,7 +2,7 @@ import {ERROR_MESSAGES} from "../utils/validators.js";
 import apiRequest from "../utils/apiRequest";
 
 const getApiUrl = () => {
-    return process.env.REACT_APP_API_URL || 'https://api.ruis-cloud-storage.work';
+    return process.env.REACT_APP_API_URL || 'http://localhost:8080';
 };
 
 export const API_ENDPOINTS = {

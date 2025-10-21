@@ -1,0 +1,88 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Sidebar should match snapshot 1`] = `
+<div>
+  <div
+    class="aside-nav"
+  >
+    <a
+      class="aside-button "
+      href="/home"
+    >
+      <div
+        class=""
+      >
+        <span
+          class="mr-2"
+        >
+          <i
+            class="fa-solid fa-house"
+            style="color: rgb(138, 138, 138);"
+          />
+        </span>
+        <span>
+            
+        </span>
+        <span>
+            
+        </span>
+        <span>
+          Home
+        </span>
+      </div>
+    </a>
+    <a
+      class="aside-button "
+      href="/my-shared"
+    >
+      <div
+        class=""
+      >
+        <span
+          class="mr-2"
+        >
+          <i
+            class="fa-solid fa-share"
+            style="color: rgb(138, 138, 138);"
+          />
+        </span>
+        <span>
+            
+        </span>
+        <span>
+            
+        </span>
+        <span>
+          My Shared
+        </span>
+      </div>
+    </a>
+    <a
+      class="aside-button "
+      href="/bin"
+    >
+      <div
+        class=""
+      >
+        <span
+          class="mr-2"
+        >
+          <i
+            class="fa-solid fa-trash"
+            style="color: rgb(138, 138, 138);"
+          />
+        </span>
+        <span>
+            
+        </span>
+        <span>
+            
+        </span>
+        <span>
+          Bin
+        </span>
+      </div>
+    </a>
+  </div>
+</div>
+`;

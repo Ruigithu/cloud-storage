@@ -1,0 +1,11 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ShareCanceled should match snapshot 1`] = `
+<div>
+  <div>
+    <h1>
+      Sorry,this share link has been canceled!
+    </h1>
+  </div>
+</div>
+`;

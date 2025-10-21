@@ -1,0 +1,251 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`MyShared Snapshot should match snapshot with data 1`] = `
+<div>
+  <div
+    class="container"
+  >
+    <header>
+      <img
+        alt="drive-icon"
+        class="drive-icon"
+        src="drive-icon.svg"
+      />
+      <div
+        class="search-bar"
+      >
+        <label
+          class="search-bar"
+        >
+          <input
+            class="search-box"
+            placeholder="search in the drive"
+            size="50"
+          />
+        </label>
+      </div>
+    </header>
+    <div
+      class="home-main-content"
+    >
+      <nav>
+        <div
+          data-testid="sidebar"
+        >
+          Sidebar
+        </div>
+      </nav>
+      <div
+        class="main-content"
+      >
+        <div
+          class="file-list"
+        >
+          <table
+            class="file-table"
+          >
+            <thead>
+              <tr
+                class="file-header"
+              >
+                <th>
+                  FileName 
+                  <i
+                    class="fa-solid fa-sort"
+                  />
+                </th>
+                <th>
+                  ShareLink 
+                  <i
+                    class="fa-solid fa-sort"
+                  />
+                </th>
+                <th>
+                  Expires At 
+                  <i
+                    class="fa-solid fa-sort"
+                  />
+                </th>
+                <th>
+                  Authorization
+                </th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                class="share-data"
+              >
+                <td>
+                  Document1.pdf
+                </td>
+                <td>
+                  https://share.link/abc123
+                </td>
+                <td>
+                  2025-12-31
+                </td>
+                <td>
+                  view
+                </td>
+                <td>
+                  <div
+                    data-active="true"
+                    data-share-id="share-1"
+                    data-testid="operate-file"
+                    data-user-id="user-123"
+                  >
+                    Operate Menu
+                  </div>
+                </td>
+              </tr>
+              <tr
+                class="share-data"
+              >
+                <td>
+                  Spreadsheet.xlsx
+                </td>
+                <td>
+                  https://share.link/def456
+                </td>
+                <td>
+                  2025-11-30
+                </td>
+                <td>
+                  edit
+                </td>
+                <td>
+                  <div
+                    data-active="true"
+                    data-share-id="share-2"
+                    data-testid="operate-file"
+                    data-user-id="user-123"
+                  >
+                    Operate Menu
+                  </div>
+                </td>
+              </tr>
+              <tr
+                class="share-data"
+              >
+                <td>
+                  Canceled.docx
+                </td>
+                <td>
+                  https://share.link/ghi789
+                </td>
+                <td>
+                  <span
+                    style="color: red;"
+                  >
+                    canceled
+                  </span>
+                </td>
+                <td>
+                  view
+                </td>
+                <td>
+                  <div
+                    data-active="false"
+                    data-share-id="share-3"
+                    data-testid="operate-file"
+                    data-user-id="user-123"
+                  >
+                    Operate Menu
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`MyShared Snapshot should match snapshot without data 1`] = `
+<div>
+  <div
+    class="container"
+  >
+    <header>
+      <img
+        alt="drive-icon"
+        class="drive-icon"
+        src="drive-icon.svg"
+      />
+      <div
+        class="search-bar"
+      >
+        <label
+          class="search-bar"
+        >
+          <input
+            class="search-box"
+            placeholder="search in the drive"
+            size="50"
+          />
+        </label>
+      </div>
+    </header>
+    <div
+      class="home-main-content"
+    >
+      <nav>
+        <div
+          data-testid="sidebar"
+        >
+          Sidebar
+        </div>
+      </nav>
+      <div
+        class="main-content"
+      >
+        <div
+          class="file-list"
+        >
+          <table
+            class="file-table"
+          >
+            <thead>
+              <tr
+                class="file-header"
+              >
+                <th>
+                  FileName 
+                  <i
+                    class="fa-solid fa-sort"
+                  />
+                </th>
+                <th>
+                  ShareLink 
+                  <i
+                    class="fa-solid fa-sort"
+                  />
+                </th>
+                <th>
+                  Expires At 
+                  <i
+                    class="fa-solid fa-sort"
+                  />
+                </th>
+                <th>
+                  Authorization
+                </th>
+                <th />
+              </tr>
+            </thead>
+            <tbody />
+          </table>
+          <div
+            class="no-files"
+          >
+            No files found
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

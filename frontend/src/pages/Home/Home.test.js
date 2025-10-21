@@ -1,471 +1,602 @@
-import React, {act} from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
-import { configureStore } from '@reduxjs/toolkit';
-import userReducer from '../../components/Tool/UserInfo/userSlice';
-import Home from './Home';
+import React from 'react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { useNavigate } from 'react-router-dom';
+import Home from './home';
+import { useFileNavigation } from '../../hooks/useFileNavigation';
+import { getFilesAndFolders } from '../../services/fileService';
+import { getUserInfo } from '../../services/authService';
 
-global.fetch = jest.fn();
-
-process.env.REACT_APP_API_URL = 'http://test-api.example.com';
-
-const localStorageMock = (() => {
-    let store = {};
-    return {
-        getItem: jest.fn(key => store[key] || null),
-        setItem: jest.fn((key, value) => {
-            // 确保实际更新store值
-            store[key] = String(value);
-        }),
-        removeItem: jest.fn(key => {
-            delete store[key];
-        }),
-        clear: jest.fn(() => {
-            store = {};
-        }),
-    };
-})();
-Object.defineProperty(window, 'localStorage', { value: localStorageMock });
-
-// Mock navigate function
-const mockNavigate = jest.fn();
+// Mock react-router-dom
 jest.mock('react-router-dom', () => ({
-    ...jest.requireActual('react-router-dom'),
-    useNavigate: () => mockNavigate,
+    useNavigate: jest.fn()
 }));
 
-// Mock SVG imports
-jest.mock('../../assets/images/cloudversify-brands-solid.svg', () => 'mock-drive-icon.svg');
+// Mock custom hook
+jest.mock('../../hooks/useFileNavigation', () => ({
+    useFileNavigation: jest.fn()
+}));
 
-// Setup Redux store for testing
-const createTestStore = () =>
-    configureStore({
-        reducer: {
-            user: userReducer,
-        },
-    });
+// Mock services
+jest.mock('../../services/fileService', () => ({
+    getFilesAndFolders: jest.fn()
+}));
 
-// Helper function to render component with all required providers
-const renderHomeComponent = () => {
-    const store = createTestStore();
-    return render(
-        <Provider store={store}>
-            <BrowserRouter>
-                <Home />
-            </BrowserRouter>
-        </Provider>
-    );
+jest.mock('../../services/authService', () => ({
+    getUserInfo: jest.fn()
+}));
+
+// Mock components
+jest.mock('../../components/Layout/Header', () => {
+    return function Header({ onFileUploadSuccess }) {
+        return (
+            <div data-testid="header">
+                Header
+                <button onClick={onFileUploadSuccess}>Upload Success</button>
+            </div>
+        );
+    };
+});
+
+jest.mock('../../components/SideBar/SideBar', () => {
+    return function Sidebar() {
+        return <div data-testid="sidebar">Sidebar</div>;
+    };
+});
+
+jest.mock('../../components/Navigation/FolderPath', () => {
+    return function FolderPath({ navigationPath, onBackward, onPathClick }) {
+        return (
+            <div data-testid="folder-path">
+                FolderPath: {navigationPath.map(p => p.name).join(' > ')}
+                <button onClick={onBackward}>Back</button>
+                <button onClick={() => onPathClick(navigationPath[0])}>Path Click</button>
+            </div>
+        );
+    };
+});
+
+jest.mock('../../components/FileList/FolderRow', () => {
+    return function FolderRow({ folder, onClick }) {
+        return (
+            <tr data-testid={`folder-${folder.id}`}>
+                <td onClick={() => onClick(folder.id)}>{folder.name}</td>
+            </tr>
+        );
+    };
+});
+
+jest.mock('../../components/FileList/FileRow', () => {
+    return function FileRow({ file, onClick }) {
+        return (
+            <tr data-testid={`file-${file.id}`}>
+                <td onClick={() => onClick(file.id)}>{file.name}</td>
+            </tr>
+        );
+    };
+});
+
+jest.mock('../../components/Button/OperateSpecificFile/OperateSpecificFile', () => {
+    return function OperateSpecificFile() {
+        return <div>File Actions</div>;
+    };
+});
+
+jest.mock('../../components/Button/OperateSpecificFolder/OperateSpecificFolder', () => {
+    return function OperateSpecificFolder() {
+        return <div>Folder Actions</div>;
+    };
+});
+
+// Mock localStorage
+const mockLocalStorage = {
+    getItem: jest.fn(),
+    setItem: jest.fn(),
+    removeItem: jest.fn(),
+    clear: jest.fn()
 };
 
-describe('Home Component', () => {
+Object.defineProperty(window, 'localStorage', {
+    value: mockLocalStorage,
+    writable: true
+});
+
+describe('Home', () => {
+    let mockNavigate;
+    let mockSetRootFolderId;
+    let mockSetNavigationPath;
+    let mockHandleFolderClick;
+    let mockHandleBackward;
+    let mockHandlePathClick;
+
     beforeEach(() => {
         jest.clearAllMocks();
-        localStorageMock.clear();
-    });
 
-    // 1. Rendering Tests
-    describe('Component Rendering', () => {
-        test('renders basic UI elements', async () => {
-            // 首先设置对getUserInfo的响应
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({ userId: '123', userName: 'TestUser' }),
-                })
-            );
+        mockNavigate = jest.fn();
+        useNavigate.mockReturnValue(mockNavigate);
 
-            // 然后设置对getRootFiles的响应
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve([]),
-                })
-            );
+        mockSetRootFolderId = jest.fn();
+        mockSetNavigationPath = jest.fn();
+        mockHandleFolderClick = jest.fn();
+        mockHandleBackward = jest.fn();
+        mockHandlePathClick = jest.fn();
 
-            // 最后设置对getRootFolders的响应
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({
-                        rootFolderId: 'root1',
-                        folders: []
-                    }),
-                })
-            );
-
-            renderHomeComponent();
-
-            // Check for header elements
-            expect(screen.getByAltText('drive-icon')).toBeInTheDocument();
-            expect(screen.getByPlaceholderText(/search in the drive/i)).toBeInTheDocument();
-
-            // Check for table headers
-            expect(screen.getByText('Name')).toBeInTheDocument();
-            expect(screen.getByText('Last Modified')).toBeInTheDocument();
-            expect(screen.getByText('Size')).toBeInTheDocument();
+        useFileNavigation.mockReturnValue({
+            rootFolderId: null,
+            setRootFolderId: mockSetRootFolderId,
+            navigationPath: [{ id: 'root', name: 'root' }],
+            setNavigationPath: mockSetNavigationPath,
+            handleFolderClick: mockHandleFolderClick,
+            handleBackward: mockHandleBackward,
+            handlePathClick: mockHandlePathClick
         });
 
-        test('displays "No files found" when files array is empty', async () => {
-            // 设置完整的API调用链
-            // 首先设置对getUserInfo的响应
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({
-                        userId: '123',
-                        userName: 'TestUser'
-                    }),
-                })
-            );
+        mockLocalStorage.getItem.mockImplementation((key) => {
+            if (key === 'userId') return 'user123';
+            if (key === 'rootFolderId') return 'root123';
+            return null;
+        });
+    });
 
-            // 然后设置对getRootFiles的响应
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve([]),
-                })
-            );
+    describe('Initial render and user info fetch', () => {
+        test('should fetch user info on mount', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
 
-            // 最后设置对getRootFolders的响应
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({
-                        rootFolderId: '456',
-                        folders: []
-                    }),
-                })
-            );
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: []
+            });
 
-            renderHomeComponent();
+            render(<Home />);
 
-            // Wait for the "No files found" message to appear
+            await waitFor(() => {
+                expect(getUserInfo).toHaveBeenCalled();
+            });
+        });
+
+        test('should store user info in localStorage', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user456',
+                userName: 'johndoe'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: []
+            });
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(mockLocalStorage.setItem).toHaveBeenCalledWith('userId', 'user456');
+                expect(mockLocalStorage.setItem).toHaveBeenCalledWith('user456', 'johndoe');
+            });
+        });
+
+        test('should handle getUserInfo error gracefully', async () => {
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            getUserInfo.mockRejectedValueOnce(new Error('Network error'));
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(consoleErrorSpy).toHaveBeenCalledWith(
+                    'Failed to fetch user info:',
+                    expect.any(Error)
+                );
+            });
+
+            consoleErrorSpy.mockRestore();
+        });
+    });
+
+    describe('Files and folders fetching', () => {
+        test('should fetch files and folders on mount', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [
+                    { id: 'file1', name: 'document.pdf' }
+                ],
+                folders: [
+                    { id: 'folder1', name: 'Documents' }
+                ]
+            });
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(getFilesAndFolders).toHaveBeenCalledWith(null, 'user123');
+            });
+        });
+
+        test('should display fetched files and folders', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [
+                    { id: 'file1', name: 'document.pdf' },
+                    { id: 'file2', name: 'image.png' }
+                ],
+                folders: [
+                    { id: 'folder1', name: 'Documents' },
+                    { id: 'folder2', name: 'Images' }
+                ]
+            });
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('folder-folder1')).toBeInTheDocument();
+                expect(screen.getByTestId('folder-folder2')).toBeInTheDocument();
+                expect(screen.getByTestId('file-file1')).toBeInTheDocument();
+                expect(screen.getByTestId('file-file2')).toBeInTheDocument();
+            });
+        });
+
+        test('should set root folder ID when not set', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: [],
+                rootFolderId: 'root-folder-123'
+            });
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(mockSetRootFolderId).toHaveBeenCalledWith('root-folder-123');
+                expect(mockLocalStorage.setItem).toHaveBeenCalledWith('rootFolderId', 'root-folder-123');
+                expect(mockSetNavigationPath).toHaveBeenCalledWith([
+                    { id: 'root-folder-123', name: 'root' }
+                ]);
+            });
+        });
+
+        test('should handle fetch error gracefully', async () => {
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockRejectedValueOnce(new Error('Network error'));
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(consoleErrorSpy).toHaveBeenCalledWith(
+                    'Error fetching data:',
+                    expect.any(Error)
+                );
+            });
+
+            consoleErrorSpy.mockRestore();
+        });
+
+        test('should display "No files found" message when no files', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: []
+            });
+
+            render(<Home />);
+
             await waitFor(() => {
                 expect(screen.getByText('No files found')).toBeInTheDocument();
             });
         });
-    });
 
-    // 2. API Call Tests
-    describe('API Calls and Data Loading', () => {
-        test('fetches user info and files/folders on component mount', async () => {
-            // 设置串联的API响应
-            // getUserInfo
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({ userId: '123', userName: 'TestUser' }),
-                })
-            );
-
-            // getRootFiles
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve([
-                        { id: 'file1', name: 'Test File 1', size: 1024, mimeType: 'application/pdf' }
-                    ]),
-                })
-            );
-
-            // getRootFolders
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({
-                        rootFolderId: 'root1',
-                        folders: [
-                            { id: 'folder1', name: 'Test Folder 1', updatedAt: '2023-01-01' }
-                        ]
-                    }),
-                })
-            );
-
-            renderHomeComponent();
-
-            // 验证所有API调用
-            await waitFor(() => {
-                const calls = global.fetch.mock.calls;
-                expect(calls.length).toBe(5);
-
-                // 第一个调用应该是获取用户信息
-                expect(calls[0][0]).toBe('http://test-api.example.com/getUserInfo');
-
-                // 第二个调用应该使用正确的userId获取文件
-                expect(calls[1][0]).toBe('http://test-api.example.com/getRootFiles?ownerId=123');
-
-                // 第三个调用应该使用正确的userId获取文件夹
-                expect(calls[2][0]).toBe('http://test-api.example.com/getRootFolders?userId=123');
+        test('should not display "No files found" when files exist', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
             });
 
-            // 验证localStorage被更新
-            expect(localStorageMock.setItem).toHaveBeenCalledWith('userId', '123');
-            expect(localStorageMock.setItem).toHaveBeenCalledWith('123', 'TestUser');
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [{ id: 'file1', name: 'test.pdf' }],
+                folders: []
+            });
 
-            // 验证组件显示了文件和文件夹
+            render(<Home />);
+
             await waitFor(() => {
-                expect(screen.getByText('Test File 1')).toBeInTheDocument();
-                expect(screen.getByText('Test Folder 1')).toBeInTheDocument();
+                expect(screen.queryByText('No files found')).not.toBeInTheDocument();
             });
         });
     });
 
-    // 3. User Interaction Tests
-    describe('User Interactions', () => {
-        beforeEach(async () => {
-            // 设置API响应链
-            // getUserInfo
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({ userId: '123', userName: 'TestUser' }),
-                })
-            );
+    describe('File and folder interactions', () => {
+        test('should navigate to editor when file is clicked', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
 
-            // getRootFiles
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve([]),
-                })
-            );
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [{ id: 'file1', name: 'document.pdf' }],
+                folders: []
+            });
 
-            // getRootFolders
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({
-                        rootFolderId: 'root1',
-                        folders: [
-                            { id: 'folder1', name: 'Test Folder 1', updatedAt: '2023-01-01' }
-                        ]
-                    }),
-                })
-            );
-        });
+            render(<Home />);
 
-        test('clicking on a folder updates navigation path and fetches its content', async () => {
-            renderHomeComponent();
-
-            // 等待文件夹渲染
             await waitFor(() => {
-                expect(screen.getByText('Test Folder 1')).toBeInTheDocument();
+                expect(screen.getByTestId('file-file1')).toBeInTheDocument();
             });
 
-            // 清除之前的fetch调用
-            global.fetch.mockClear();
+            fireEvent.click(screen.getByText('document.pdf'));
 
-            // 设置子文件夹内容的模拟响应
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve([]),
-                })
-            );
-
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({
-                        folders: [
-                            { id: 'subfolder1', name: 'Subfolder 1', updatedAt: '2023-01-02' }
-                        ]
-                    }),
-                })
-            );
-
-            // 点击文件夹
-            fireEvent.click(screen.getByText('Test Folder 1'));
-
-            renderHomeComponent();
-
-            // 验证导航路径更新
-            await waitFor(() => {
-                expect(screen.getByText('Subfolder 1')).toBeInTheDocument();
-            });
-        });
-
-        test('clicking on a file navigates to editor page', async () => {
-            // Update mock to include a file
-            global.fetch.mockImplementation((url) => {
-                if (url.includes('getAllFiles') || url.includes('getRootFiles')) {
-                    return Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve([
-                            { id: 'file1', name: 'Test Document.doc', size: 1024, mimeType: 'application/msword' }
-                        ]),
-                    });
-                } else if (url.includes('getAllFolders') || url.includes('getRootFolders')) {
-                    return Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve([
-                            { id: 'folder1', name: 'Test Folder', updatedAt: '2023-01-01' }
-                        ]),
-                    });
-                }
-                // 处理其他API调用
-                return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-            });
-
-            renderHomeComponent();
-
-            // Wait for file to be rendered
-            await waitFor(() => {
-                expect(screen.getByText('Test Document.doc')).toBeInTheDocument();
-            });
-
-            // Click on the file
-            fireEvent.click(screen.getByTestId('file-name-file1'));
-
-            // Verify navigation to editor
             expect(mockNavigate).toHaveBeenCalledWith('/editor/file1');
         });
 
-        test('backward navigation button works correctly', async () => {
-            renderHomeComponent();
-
-            // Setup mock for folder content
-            global.fetch.mockImplementation((url) => {
-                if (url.includes('getAllFolders') || url.includes('getRootFolders')) {
-                    return Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve({
-                            folders: [{ id: 'subfolder1', name: 'Subfolder 1', updatedAt: '2023-01-02' }],
-                            rootFolderId: 'root1'
-                        }),
-                    });
-                } else if (url.includes('getAllFiles') || url.includes('getRootFiles')) {
-                    // 针对文件请求返回数组格式
-                    return Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve([])  // 空数组或包含文件的数组
-                    });
-                } else {
-                    return Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve([])
-                    });
-                }
+        test('should call handleFolderClick when folder is clicked', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
             });
 
-            // Wait for folder to be rendered and click on it
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: [{ id: 'folder1', name: 'Documents' }]
+            });
+
+            render(<Home />);
+
             await waitFor(() => {
-                expect(screen.getByText('Test Folder 1')).toBeInTheDocument();
-            });
-            fireEvent.click(screen.getByText('Test Folder 1'));
-
-            // Verify subfolder is displayed after clicking parent folder
-            await waitFor(() => {
-                expect(screen.getByText('Subfolder 1')).toBeInTheDocument();
+                expect(screen.getByTestId('folder-folder1')).toBeInTheDocument();
             });
 
-            // Clear previous fetch calls
-            global.fetch.mockClear();
+            fireEvent.click(screen.getByText('Documents'));
 
-            // Setup mock for parent folder content
-            global.fetch.mockImplementation(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({
-                        files: [],
-                        folders: [{ id: 'folder1', name: 'Test Folder 1', updatedAt: '2023-01-01' }],
-                        rootFolderId: 'root1'  // 添加这个属性以保持一致性
-                    }),
-                })
-            );
-            // Click backward button
-            const backButton = await screen.findByTestId('backward-icon');
-            fireEvent.click(backButton);
-
-
-            // Verify we're back to showing the parent folder content
-            await waitFor(() => {
-                expect(screen.getByText('Test Folder 1')).toBeInTheDocument();
-                // Subfolder should no longer be in the document
-                expect(screen.queryByText('Subfolder 1')).not.toBeInTheDocument();
-            });
+            expect(mockHandleFolderClick).toHaveBeenCalledWith('folder1');
         });
+    });
 
-    // 4. Helper Function Tests
-    describe('Helper Functions', () => {
-        test('formatFileSize correctly formats different file sizes', () => {
-            // We need to access the component's internal function
-            // This requires a different approach - we can test this indirectly
-
-            // Mock files with different sizes
-            global.fetch.mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({ userId: '123', userName: 'TestUser' }),
-                })
-            );
-
-            global.fetch.mockImplementation(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve([
-                        { id: 'file1', name: 'Small File', size: 1024, mimeType: 'text/plain' },
-                        { id: 'file2', name: 'Medium File', size: 1048576, mimeType: 'text/plain' }, // 1MB
-                        { id: 'file3', name: 'Large File', size: 1073741824, mimeType: 'text/plain' }, // 1GB
-                    ]),
-                })
-            );
-
-            renderHomeComponent();
-
-            // Check if the formatted sizes are displayed correctly
-            waitFor(() => {
-                expect(screen.getByText('1 KB')).toBeInTheDocument();
-                expect(screen.getByText('1 MB')).toBeInTheDocument();
-                expect(screen.getByText('1 GB')).toBeInTheDocument();
-            });
-        });
-
-        test('getFileIcon returns correct icon classes for different file types', async () => {
-            // Mock files with different types
-            global.fetch.mockImplementation((url) => {
-                if (url.includes('getAllFolders') || url.includes('getRootFolders')) {
-                    return Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve({
-                            folders: [{ id: 'subfolder1', name: 'Subfolder 1', updatedAt: '2023-01-02' }],
-                            rootFolderId: 'root1'
-                        }),
-                    });
-                } else {
-                    // 确保其他所有API调用（包括文件相关的）返回一个空数组而不是undefined
-                    return Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve([])
-                    });
-                }
+    describe('File upload', () => {
+        test('should refresh files after upload success', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
             });
 
-            global.fetch.mockImplementation(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve([
-                        { id: 'file1', name: 'Image File', size: 1024, mimeType: 'image/jpeg' },
-                        { id: 'file2', name: 'PDF File', size: 2048, mimeType: 'application/pdf' },
-                        { id: 'file3', name: 'Word File', size: 3072, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
-                    ]),
+            getFilesAndFolders
+                .mockResolvedValueOnce({
+                    files: [],
+                    folders: []
                 })
-            );
+                .mockResolvedValueOnce({
+                    files: [{ id: 'newfile', name: 'uploaded.pdf' }],
+                    folders: []
+                });
 
-            renderHomeComponent();
+            render(<Home />);
 
-            // Check if the correct icons are displayed
             await waitFor(() => {
-                const imageIcon = document.querySelector('.fa-image');
-                const pdfIcon = document.querySelector('.fa-file-pdf');
-                const wordIcon = document.querySelector('.fa-file-word');
+                expect(screen.getByTestId('header')).toBeInTheDocument();
+            });
 
-                expect(imageIcon).toBeInTheDocument();
-                expect(pdfIcon).toBeInTheDocument();
-                expect(wordIcon).toBeInTheDocument();
+            // Trigger upload success
+            fireEvent.click(screen.getByText('Upload Success'));
+
+            await waitFor(() => {
+                expect(getFilesAndFolders).toHaveBeenCalledTimes(2);
             });
         });
     });
-});
+
+    describe('Navigation', () => {
+        test('should call handleBackward when back button is clicked', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: []
+            });
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('folder-path')).toBeInTheDocument();
+            });
+
+            fireEvent.click(screen.getByText('Back'));
+
+            expect(mockHandleBackward).toHaveBeenCalled();
+        });
+
+        test('should call handlePathClick when path is clicked', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: []
+            });
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('folder-path')).toBeInTheDocument();
+            });
+
+            fireEvent.click(screen.getByText('Path Click'));
+
+            expect(mockHandlePathClick).toHaveBeenCalled();
+        });
+    });
+
+    describe('Component layout', () => {
+        test('should render Header component', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: []
+            });
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('header')).toBeInTheDocument();
+            });
+        });
+
+        test('should render Sidebar component', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: []
+            });
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+            });
+        });
+
+        test('should render FolderPath component', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: []
+            });
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('folder-path')).toBeInTheDocument();
+            });
+        });
+
+        test('should render file table with headers', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: []
+            });
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(screen.getByText('Name')).toBeInTheDocument();
+                expect(screen.getByText('Last Modified')).toBeInTheDocument();
+                expect(screen.getByText('Size')).toBeInTheDocument();
+            });
+        });
+    });
+
+    describe('Effect dependencies', () => {
+        test('should refetch when rootFolderId changes', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValue({
+                files: [],
+                folders: []
+            });
+
+            const { rerender } = render(<Home />);
+
+            await waitFor(() => {
+                expect(getFilesAndFolders).toHaveBeenCalledTimes(1);
+            });
+
+            // Change rootFolderId
+            useFileNavigation.mockReturnValue({
+                rootFolderId: 'newfolder123',
+                setRootFolderId: mockSetRootFolderId,
+                navigationPath: [{ id: 'newfolder123', name: 'New Folder' }],
+                setNavigationPath: mockSetNavigationPath,
+                handleFolderClick: mockHandleFolderClick,
+                handleBackward: mockHandleBackward,
+                handlePathClick: mockHandlePathClick
+            });
+
+            rerender(<Home />);
+
+            await waitFor(() => {
+                expect(getFilesAndFolders).toHaveBeenCalledTimes(2);
+            });
+        });
+
+        test('should not fetch if userId is not available', async () => {
+            getUserInfo.mockResolvedValueOnce(null);
+            mockLocalStorage.getItem.mockReturnValue(null);
+
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(consoleErrorSpy).toHaveBeenCalledWith('No userId available');
+            });
+
+            consoleErrorSpy.mockRestore();
+        });
+    });
+
+    describe('localStorage integration', () => {
+        test('should pass userId from localStorage to Header', async () => {
+            getUserInfo.mockResolvedValueOnce({
+                userId: 'user123',
+                userName: 'testuser'
+            });
+
+            getFilesAndFolders.mockResolvedValueOnce({
+                files: [],
+                folders: []
+            });
+
+            mockLocalStorage.getItem.mockReturnValue('stored-user-123');
+
+            render(<Home />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('header')).toBeInTheDocument();
+            });
+
+            // Header should receive userId from localStorage
+            expect(mockLocalStorage.getItem).toHaveBeenCalledWith('userId');
+        });
+    });
 });

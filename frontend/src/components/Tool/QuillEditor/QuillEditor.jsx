@@ -2,82 +2,60 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import './QuillEditor.css';
-import SockJS from 'sockjs-client';
-import apiRequest from "../../../utils/apiRequest";
+
+import {
+    loadDocument,
+    convertDocxToHtml,
+    convertHtmlToDocx,
+    uploadFile,
+    downloadFile,
+    processImagesInDelta,
+    hasBase64Images
+} from '../../../services/editorService';
+
+import {
+    createQuillConfig,
+    getFileExtension,
+    isWordDocument,
+    isImageFile,
+    formatLastSaved,
+    createFile, isLegacyWordDocument
+} from '../../../utils/editorHelper';
 
 const QuillEditor = ({ documentId, userId }) => {
+    // Refs
     const editorRef = useRef(null);
     const quillRef = useRef(null);
+    const isSavingRef = useRef(false);
+    const contentChangeRef = useRef(false);
+
+    // States
     const [isUnsupportedFile, setIsUnsupportedFile] = useState(false);
+    // eslint-disable-next-lin
+    const [isLegacyDoc, setIsLegacyDoc] = useState(false);
     const [isImage, setIsImage] = useState(false);
     const [fileUrl, setFileUrl] = useState('');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState(null);
     const [contentChanged, setContentChanged] = useState(false);
-    const contentChangeRef = useRef(false);
     const [saveCount, setSaveCount] = useState(0);
     const [fileInfo, setFileInfo] = useState(null);
-    const isSavingRef = useRef(false);
 
-    // Function to process images in the editor content
-    const processImagesInDelta = useCallback(  async (delta) => {
-        const updatedOps = await Promise.all(delta.ops.map(async op => {
-            if (op.insert && op.insert.image && op.insert.image.startsWith('data:image')) {
-                const imageBlob = await fetch(op.insert.image).then(res => res.blob());
-                const imageFile = new File([imageBlob], `image_${Date.now()}.png`, { type: imageBlob.type });
-                const formData = new FormData();
-                formData.append('file', imageFile);
-                formData.append('ownerId', userId);
-                formData.append('fileId', documentId);
-                const response = await apiRequest(`${process.env.REACT_APP_API_URL}/uploadNewFile`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    body: formData
-                });
-                if (!response.ok) {
-                    throw new Error(`Failed to upload image: ${response.status}`);
-                }
-                const { url } = await response.json();
-                return { insert: { image: url } };
-            }
-            return op;
-        }));
-        return { ops: updatedOps };
-    },[documentId,userId]);
-
-    // Download file function
-    const downloadFile = async () => {
-        try {
-            const response = await apiRequest(
-                `${process.env.REACT_APP_API_URL}/getFileByUserIdAndFileId?ownerId=${userId}&fileId=${documentId}`,
-                {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/octet-stream',
-                    },
-                    credentials: 'include'
-                }
-            );
-            if (!response.ok) {
-                throw new Error(`Failed to download: ${response.status}`);
-            }
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = fileInfo?.name || `file_${documentId}`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Error downloading file:', error);
-            alert('Failed to download file');
-        }
+    /**
+     * update save status
+     */
+    const updateSaveStatus = () => {
+        const now = new Date();
+        setLastSaved(now);
+        setContentChanged(false);
+        contentChangeRef.current = false;
+        setSaveCount(prev => prev + 1);
     };
 
-    // Save document function (manual trigger only, no auto-save)
+    /**
+     * save doc
+     */
     const saveDocument = useCallback(async () => {
         if (!quillRef.current || isSavingRef.current || isUnsupportedFile) return;
 
@@ -94,36 +72,18 @@ const QuillEditor = ({ documentId, userId }) => {
             let mimeType = fileInfo?.mimeType || 'application/json';
             let fileName = fileInfo?.name || `document_${documentId}${getFileExtension(mimeType)}`;
 
+
             if (isImage) {
                 const response = await fetch(fileUrl);
                 blob = await response.blob();
                 mimeType = fileInfo?.mimeType || 'image/png';
                 fileName = fileInfo?.name || `image_${documentId}${getFileExtension(mimeType)}`;
-            } else if (fileInfo?.mimeType.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
-                fileInfo?.mimeType.includes('application/msword')) {
-                // For Word documents, use the specialized API endpoint
+            }
+
+            else if (isWordDocument(fileInfo?.mimeType)) {
                 const htmlContent = quillRef.current.root.innerHTML;
-                const response = await apiRequest(
-                    `${process.env.REACT_APP_API_URL}/convertHtmlToDocx`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({
-                            htmlContent,
-                            fileName: fileName.endsWith('.docx') || fileName.endsWith('.doc') ?
-                                fileName : `${fileName}.docx`,
-                            ownerId: userId,
-                            fileId: documentId
-                        })
-                    }
-                );
+                const result = await convertHtmlToDocx(htmlContent, fileName, userId, documentId);
 
-                if (!response.ok) {
-                    throw new Error(`Failed to convert to DOCX: ${response.status}`);
-                }
-
-                const result = await response.json();
                 setFileInfo({
                     ...fileInfo,
                     name: result.fileName,
@@ -131,49 +91,25 @@ const QuillEditor = ({ documentId, userId }) => {
                     versionId: result.versionId
                 });
 
-                // Save completed via the specialized endpoint
-                const now = new Date();
-                setLastSaved(now);
-                setContentChanged(false);
-                contentChangeRef.current = false;
-                setSaveCount(prev => prev + 1);
-                setSaving(false);
-                isSavingRef.current = false;
+                updateSaveStatus();
                 return;
-            } else {
-                // For non-Word documents
+            }
+
+            else {
                 const delta = quillRef.current.getContents();
-                const hasBase64Images = delta.ops.some(op => op.insert && op.insert.image && op.insert.image.startsWith('data:image'));
-                const updatedDelta = hasBase64Images ? await processImagesInDelta(delta) : delta;
+                const hasBas64Images = hasBase64Images(delta);
+                const updatedDelta = hasBas64Images
+                    ? await processImagesInDelta(delta, userId, documentId)
+                    : delta;
                 const deltaJson = JSON.stringify(updatedDelta);
                 blob = new Blob([deltaJson], { type: 'application/json' });
             }
 
-            // Upload the file
-            const file = new File([blob], fileName, { type: mimeType });
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('ownerId', userId);
-            formData.append('fileId', documentId);
+            // 上传文件
+            const file = createFile(blob, fileName, mimeType);
+            await uploadFile(file, userId, documentId);
 
-            const uploadResponse = await apiRequest(
-                `${process.env.REACT_APP_API_URL}/uploadNewFile`,
-                {
-                    method: 'POST',
-                    credentials: 'include',
-                    body: formData
-                }
-            );
-
-            if (!uploadResponse.ok) {
-                throw new Error(`Failed to save: ${uploadResponse.status}`);
-            }
-
-            const now = new Date();
-            setLastSaved(now);
-            setContentChanged(false);
-            contentChangeRef.current = false;
-            setSaveCount(prev => prev + 1);
+            updateSaveStatus();
         } catch (error) {
             console.error(`Error saving file:`, error);
             alert('Failed to save, please try again');
@@ -181,100 +117,100 @@ const QuillEditor = ({ documentId, userId }) => {
             setSaving(false);
             isSavingRef.current = false;
         }
-    }, [documentId, userId, isImage, fileInfo, contentChanged, fileUrl, isUnsupportedFile, processImagesInDelta]);
-    // File extension helper
-    function getFileExtension(mimeType) {
-        const mimeToExt = {
-            'application/json': '.json',
-            'text/plain': '.txt',
-            'text/html': '.html',
-            'image/png': '.png',
-            'image/jpeg': '.jpg',
-            'application/pdf': '.pdf',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-            'application/msword': '.doc',
-        };
-        return mimeToExt[mimeType] || '.txt';
-    }
+    }, [documentId, userId, isImage, fileInfo, contentChanged, fileUrl, isUnsupportedFile]);
 
+    /**
+     * 下载文件
+     */
+    const handleDownload = async () => {
+        try {
+            await downloadFile(documentId, userId, fileInfo?.name);
+        } catch (error) {
+            console.error('Error downloading file:', error);
+            alert('Failed to download file');
+        }
+    };
 
-    // Initialize Quill editor and WebSocket connection
+    /**
+     * load document content
+     */
+    const loadDocumentContent = useCallback(async () => {
+        try {
+            setLoading(true);
+            const { response, contentType, fileName, isJson } = await loadDocument(documentId, userId);
+
+            const fileInfoBase = {
+                name: fileName,
+                mimeType: contentType,
+                id: documentId
+            };
+
+            setFileInfo(fileInfoBase);
+
+            if (isJson) {
+                const data = await response.json();
+                setFileInfo({
+                    ...fileInfoBase,
+                    name: data.fileName || fileName,
+                    mimeType: data.mimeType || contentType,
+                    versionId: data.versionId,
+                    size: data.size
+                });
+
+                if (isLegacyWordDocument(data.mimeType)) {
+                    // 处理 .doc
+                    setIsLegacyDoc(true);
+                    setIsUnsupportedFile(true);
+                    if (quillRef.current) {
+                        quillRef.current.disable();
+                    }
+                } else if (isWordDocument(data.mimeType)) {
+                    // 处理 .docx
+                    const htmlContent = await convertDocxToHtml(documentId, userId);
+                    if (quillRef.current) {
+                        quillRef.current.setText('');
+                        quillRef.current.clipboard.dangerouslyPasteHTML(htmlContent);
+                    }
+                } else {
+                    // 其他不支持的类型
+                    setIsUnsupportedFile(true);
+                    if (quillRef.current) {
+                        quillRef.current.disable();
+                    }
+                }
+            } else {
+                const blob = await response.blob();
+
+                if (isImageFile(contentType)) {
+                    const url = URL.createObjectURL(blob);
+                    setFileUrl(url);
+                    setIsImage(true);
+                } else {
+                    setIsUnsupportedFile(true);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading document:', error);
+            if (quillRef.current) {
+                quillRef.current.setText('Failed to load, try again');
+            }
+        } finally {
+            setLoading(false);
+            setContentChanged(false);
+            contentChangeRef.current = false;
+        }
+    }, [documentId, userId]);
+
+    /**
+     * 初始化 Quill 编辑器
+     */
     useEffect(() => {
         if (!quillRef.current && !isUnsupportedFile) {
-            const toolbarOptions = [
-                ['bold', 'italic', 'underline', 'strike'],
-                ['blockquote', 'code-block'],
-                [{'header': 1}, {'header': 2}],
-                [{'list': 'ordered'}, {'list': 'bullet'}],
-                [{'script': 'sub'}, {'script': 'super'}],
-                [{'indent': '-1'}, {'indent': '+1'}],
-                [{'direction': 'rtl'}],
-                [{'size': ['small', false, 'large', 'huge']}],
-                [{'header': [1, 2, 3, 4, 5, 6, false]}],
-                [{'color': []}, {'background': []}],
-                [{'font': []}],
-                [{'align': []}],
-                ['clean'],
-                ['link', 'image']
-            ];
+            quillRef.current = new Quill(editorRef.current, createQuillConfig());
 
-            quillRef.current = new Quill(editorRef.current, {
-                modules: {
-                    toolbar: toolbarOptions,
-                    history: {
-                        delay: 2000,
-                        maxStack: 500,
-                        userOnly: true
-                    }
-                },
-                theme: 'snow',
-                placeholder: 'Start editing the file...',
-            });
-        }
-
-        // Set up WebSocket for collaborative editing
-        const newSocket = new SockJS(`${process.env.REACT_APP_API_URL}/ws/document?userId=${userId}&documentId=${documentId}`, null, {
-            transports: ['websocket'],
-            withCredentials: true,
-            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        });
-
-        newSocket.onopen = () => {
-            console.log("Connected to WebSocket");
-            newSocket.send(JSON.stringify({
-                type: 'joinDocument',
-                documentId,
-                userId
-            }));
-        };
-
-        newSocket.onmessage = (event) => {
-            try {
-                const parsedData = JSON.parse(event.data);
-                const { type, userId: editingUserId, delta } = parsedData;
-
-                if (type === 'text-change' && editingUserId !== userId) {
-                    quillRef.current.updateContents(delta);
-                    setContentChanged(true);
-                    contentChangeRef.current = true;
-                }
-
-            } catch (error) {
-                console.error("Message parsing error:", error);
-            }
-        };
-
-        // Set up text change event listener for collaborative editing
-        if (quillRef.current && !isUnsupportedFile) {
+            // 监听文本更改
             quillRef.current.on('text-change', (delta, oldDelta, source) => {
                 if (source === 'user') {
-                    newSocket.send(JSON.stringify({
-                        type: 'text-change',
-                        delta,
-                        documentId,
-                        userId
-                    }));
-
                     contentChangeRef.current = true;
                     setContentChanged(true);
                 }
@@ -282,111 +218,23 @@ const QuillEditor = ({ documentId, userId }) => {
         }
 
         return () => {
-            newSocket.close();
-        };
-    }, [documentId, userId, isUnsupportedFile]);
-
-    // Load document content on component mount
-    useEffect(() => {
-        const loadDocument = async () => {
-            try {
-                setLoading(true);
-                const response = await apiRequest(
-                    `${process.env.REACT_APP_API_URL}/getFileByUserIdAndFileId?ownerId=${userId}&fileId=${documentId}`,
-                    {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json, application/octet-stream',
-                            'Content-Type': 'application/json',
-                        },
-                        credentials: 'include'
-                    }
-                );
-
-                if (!response.ok) {
-                    throw new Error(`Server responded with status ${response.status}`);
-                }
-
-                const contentType = response.headers.get('content-type');
-                const contentDisposition = response.headers.get('content-disposition');
-                let fileName = 'document';
-                if (contentDisposition) {
-                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-                    if (filenameMatch) {
-                        fileName = filenameMatch[1];
-                    }
-                }
-
-                setFileInfo({
-                    name: fileName,
-                    mimeType: contentType,
-                    id: documentId
-                });
-
-                if (contentType && contentType.includes('application/json')) {
-                    const data = await response.json();
-                    setFileInfo({
-                        name: data.fileName || fileName,
-                        mimeType: data.mimeType || contentType,
-                        id: documentId,
-                        versionId: data.versionId,
-                        size: data.size
-                    });
-
-                    if (data.mimeType && (
-                        data.mimeType.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
-                        data.mimeType.includes('application/msword')
-                    )) {
-                        const mammothResponse = await apiRequest(
-                            `${process.env.REACT_APP_API_URL}/convertDocxToHtmlMammoth?ownerId=${userId}&fileId=${documentId}`,
-                            {
-                                method: 'GET',
-                                credentials: 'include'
-                            }
-                        );
-
-                        if (!mammothResponse.ok) {
-                            throw new Error(`Failed to convert document with Mammoth: ${mammothResponse.status}`);
-                        }
-
-                        const convertedData = await mammothResponse.json();
-                        if (quillRef.current) {
-                            quillRef.current.setText('');
-                            quillRef.current.clipboard.dangerouslyPasteHTML(convertedData.htmlContent);
-                        }
-                    } else {
-                        setIsUnsupportedFile(true);
-                        if (quillRef.current) {
-                            quillRef.current.disable();
-                        }
-                    }
-                } else {
-                    const blob = await response.blob();
-
-                    if (contentType.startsWith('image/')) {
-                        const url = URL.createObjectURL(blob);
-                        setFileUrl(url);
-                        setIsImage(true);
-                    } else {
-                        setIsUnsupportedFile(true);
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading document:', error);
-                if (quillRef.current) {
-                    quillRef.current.setText('Failed to load, try again');
-                }
-            } finally {
-                setLoading(false);
-                setContentChanged(false);
-                contentChangeRef.current = false;
+            // 清理编辑器
+            if (quillRef.current) {
+                quillRef.current.off('text-change');
             }
         };
+    }, [isUnsupportedFile]);
 
-        loadDocument();
-    }, [documentId, userId]);
+    /**
+     * 加载文档
+     */
+    useEffect(() => {
+        loadDocumentContent();
+    }, [loadDocumentContent]);
 
-    // Warn user about unsaved changes when leaving the page
+    /**
+     * 监听页面离开事件（未保存警告）
+     */
     useEffect(() => {
         const handleBeforeUnload = (e) => {
             if (contentChanged || contentChangeRef.current) {
@@ -397,18 +245,12 @@ const QuillEditor = ({ documentId, userId }) => {
         };
 
         window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [contentChanged]);
-
-    const formatLastSaved = () => {
-        if (!lastSaved) return 'Not saved yet';
-        return `Last saved: ${lastSaved.toLocaleTimeString()}`;
-    };
 
     return (
         <div className="flex flex-col h-full">
+            {/* 工具栏 */}
             <div className="editor-toolbar">
                 {!isUnsupportedFile && !isImage && (
                     <button
@@ -420,21 +262,13 @@ const QuillEditor = ({ documentId, userId }) => {
                     </button>
                 )}
 
-                {/*{(isUnsupportedFile || isImage || fileInfo?.mimeType.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||*/}
-                {/*    fileInfo?.mimeType.includes('application/msword')) && (*/}
-                {/*    <button*/}
-                {/*        className="download-button"*/}
-                {/*        onClick={downloadFile}*/}
-                {/*    >*/}
-                {/*        Download File*/}
-                {/*    </button>*/}
-                {/*)}*/}
-
                 <div className="save-status">
                     {!isUnsupportedFile && !isImage && (
                         <>
-                            <span>{formatLastSaved()}</span>
-                            {saveCount > 0 && <span className="save-count">(Saved {saveCount} times)</span>}
+                            <span>{formatLastSaved(lastSaved)}</span>
+                            {saveCount > 0 && (
+                                <span className="save-count">(Saved {saveCount} times)</span>
+                            )}
                         </>
                     )}
                 </div>
@@ -447,6 +281,7 @@ const QuillEditor = ({ documentId, userId }) => {
                 )}
             </div>
 
+            {/* 编辑器内容区域 */}
             <div className="flex-grow relative">
                 {loading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 z-10">
@@ -456,19 +291,19 @@ const QuillEditor = ({ documentId, userId }) => {
 
                 {isImage ? (
                     <div className="image-container">
-                        <img src={fileUrl} alt="document" className="preview-img"/>
+                        <img src={fileUrl} alt="document" className="preview-img" />
                     </div>
                 ) : isUnsupportedFile ? (
                     <div className="unsupported-file-container">
                         <div className="unsupported-file-message">
                             <p>This file type cannot be edited in this editor.</p>
-                            <button className="download-button-large" onClick={downloadFile}>
+                            <button className="download-button-large" onClick={handleDownload}>
                                 Download File
                             </button>
                         </div>
                     </div>
                 ) : (
-                    <div ref={editorRef} className="h-full editor-container"/>
+                    <div ref={editorRef} className="h-full editor-container" />
                 )}
             </div>
         </div>
