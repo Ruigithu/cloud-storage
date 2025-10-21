@@ -32,7 +32,7 @@ const QuillEditor = ({ documentId, userId }) => {
     // States
     const [isUnsupportedFile, setIsUnsupportedFile] = useState(false);
     // eslint-disable-next-lin
-    const [isLegacyDoc, setIsLegacyDoc] = useState(false);
+    const [, setIsLegacyDoc] = useState(false);
     const [isImage, setIsImage] = useState(false);
     const [fileUrl, setFileUrl] = useState('');
     const [loading, setLoading] = useState(false);
