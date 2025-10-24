@@ -6,6 +6,7 @@ import com.amazonaws.services.s3.model.PartSummary;
 import com.ruipeng.cloudstorage.entity.*;
 import com.ruipeng.cloudstorage.exception.ResourceNotFoundException;
 import com.ruipeng.cloudstorage.mappers.FileMapper;
+import com.ruipeng.cloudstorage.mappers.FilePermissionMapper;
 import com.ruipeng.cloudstorage.mappers.FileVersionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,15 +35,19 @@ public class ResumableUploadService {
     private final FileVersionMapper fileVersionMapper;
     private final S3StorageService storageService;
     private final FilePermissionService permissionService;
+    private final FilePermissionService filePermissionService;
+    private final FilePermissionMapper filePermissionMapper;
 
     public ResumableUploadService(FileMapper fileMapper,
                                   FileVersionMapper fileVersionMapper,
                                   S3StorageService storageService,
-                                  FilePermissionService permissionService) {
+                                  FilePermissionService permissionService, FilePermissionService filePermissionService, FilePermissionMapper filePermissionMapper) {
         this.fileMapper = fileMapper;
         this.fileVersionMapper = fileVersionMapper;
         this.storageService = storageService;
         this.permissionService = permissionService;
+        this.filePermissionService = filePermissionService;
+        this.filePermissionMapper = filePermissionMapper;
     }
 
     /**
@@ -216,8 +221,9 @@ public class ResumableUploadService {
             fileMapper.updateFileDeleteStatus(file);
 
             // Then permanently delete
-            fileMapper.deleteFile(fileId);
+            filePermissionMapper.deleteByFileId(fileId);
             fileVersionMapper.deleteByFileId(fileId);
+            fileMapper.deleteFile(fileId);
         }
     }
 

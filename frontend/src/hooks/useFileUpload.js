@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useChunkUpload } from './useChunkUpload';
 import * as uploadService from '../services/uploadService';
 import { calculateProgress } from '../utils/uploadUtils';
+import {UPLOAD_CONFIG} from "../utils/uploadHelper";
 
 export const useFileUpload = ({ ownerId, folderId, onSuccess }) => {
     const [isUploading, setIsUploading] = useState(false);
@@ -13,7 +14,7 @@ export const useFileUpload = ({ ownerId, folderId, onSuccess }) => {
     const [uploadedParts, setUploadedParts] = useState([]);
 
     const fileRef = useRef(null);
-    const { uploadAllChunks, pause: pauseChunks, resume: resumeChunks } = useChunkUpload();
+    const { uploadAllChunks, pause: pauseChunks, resume: resumeChunks,xhrRef } = useChunkUpload();
 
     /**
      * 初始化上传
@@ -56,7 +57,10 @@ export const useFileUpload = ({ ownerId, folderId, onSuccess }) => {
                     fileId,
                     uploadId,
                     partNumber,
-                    onProgress
+                    onProgress,
+                    (xhr) => {
+                        xhrRef.current = xhr;
+                    }
                 );
             };
 
@@ -82,7 +86,7 @@ export const useFileUpload = ({ ownerId, folderId, onSuccess }) => {
 
             return partETags;
         },
-        [uploadAllChunks]
+        [uploadAllChunks,xhrRef]
     );
 
     /**
@@ -114,7 +118,12 @@ export const useFileUpload = ({ ownerId, folderId, onSuccess }) => {
      */
     const startUpload = useCallback(
         async (file) => {
+            if (isUploading) {
+                alert('Please wait for the current upload to finish or cancel it.');
+                return;
+            }
             if (!file) return;
+
 
             fileRef.current = file;
             setIsUploading(true);
@@ -128,6 +137,15 @@ export const useFileUpload = ({ ownerId, folderId, onSuccess }) => {
                 // 上传分片
                 const partETags = await uploadFileParts(file, fileId, uploadId, uploadedParts);
 
+                const totalParts = Math.ceil(file.size / UPLOAD_CONFIG.CHUNK_SIZE);
+
+                if (partETags.length < totalParts) {
+                    console.log(
+                        `Upload incomplete: ${partETags.length}/${totalParts} parts uploaded`
+                    );
+                    setIsPaused(true);
+                    return;
+                }
                 // 完成上传
                 await completeUpload(fileId, uploadId, partETags);
             } catch (error) {
@@ -135,7 +153,7 @@ export const useFileUpload = ({ ownerId, folderId, onSuccess }) => {
                 setIsUploading(false);
             }
         },
-        [initUpload, uploadFileParts, completeUpload]
+        [initUpload, uploadFileParts, completeUpload,isUploading]
     );
 
     /**
@@ -172,6 +190,17 @@ export const useFileUpload = ({ ownerId, folderId, onSuccess }) => {
                 uploadId,
                 formattedParts
             );
+            const totalParts = Math.ceil(
+                fileRef.current.size / UPLOAD_CONFIG.CHUNK_SIZE
+            );
+
+            if (partETags.length < totalParts) {
+                console.log(
+                    `Upload incomplete: ${partETags.length}/${totalParts} parts uploaded`
+                );
+                setIsPaused(true);
+                return;
+            }
 
             // 完成上传
             await completeUpload(fileId, uploadId, partETags);

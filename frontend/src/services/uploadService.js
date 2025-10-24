@@ -52,6 +52,7 @@ export const getUploadedParts = async (fileId, uploadId) => {
     const response = await apiRequest(
         `${API_URL}${API_ENDPOINTS.RESUMABLE_PARTS}?fileId=${fileId}&uploadId=${uploadId}`,
         {
+
             method: 'GET',
             headers: getAuthHeaders(),
         }
@@ -67,7 +68,7 @@ export const getUploadedParts = async (fileId, uploadId) => {
 /**
  * 上传单个分片（使用 XMLHttpRequest 支持进度回调）
  */
-export const uploadPartWithProgress = (chunk, fileId, uploadId, partNumber, onProgress) => {
+export const uploadPartWithProgress = (chunk, fileId, uploadId, partNumber, onProgress,onXHRCreated) => {
     return new Promise((resolve, reject) => {
         const formData = buildFormData({
             part: chunk,
@@ -77,6 +78,10 @@ export const uploadPartWithProgress = (chunk, fileId, uploadId, partNumber, onPr
         });
 
         const xhr = new XMLHttpRequest();
+
+        if (onXHRCreated) {
+            onXHRCreated(xhr);
+        }
 
         // 进度监听
         xhr.upload.addEventListener('progress', (event) => {

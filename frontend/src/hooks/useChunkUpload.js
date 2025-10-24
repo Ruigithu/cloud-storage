@@ -50,6 +50,8 @@ export const useChunkUpload = () => {
                         }
                     });
 
+                    xhrRef.current = null;
+
                     const eTag = extractETag(result);
                     const partInfo = {
                         partNumber,
@@ -63,6 +65,7 @@ export const useChunkUpload = () => {
                         onPartComplete(partInfo);
                     }
                 } catch (error) {
+                    xhrRef.current = null;
                     if (error.aborted) {
                         console.log(`Part ${partNumber} was aborted`);
                         return partETags;
@@ -82,7 +85,9 @@ export const useChunkUpload = () => {
     const pause = useCallback(() => {
         isPausedRef.current = true;
         if (xhrRef.current) {
+            console.log('Aborting current upload');
             xhrRef.current.abort();
+            xhrRef.current = null;
         }
     }, []);
 
@@ -100,6 +105,7 @@ export const useChunkUpload = () => {
         isPausedRef.current = true;
         if (xhrRef.current) {
             xhrRef.current.abort();
+            xhrRef.current = null;
         }
     }, []);
 
@@ -116,5 +122,6 @@ export const useChunkUpload = () => {
         resume,
         abort,
         isPaused,
+        xhrRef
     };
 };
